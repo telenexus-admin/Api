@@ -1802,12 +1802,23 @@ async def evolution_webhook_receiver(request: Request, background_tasks: Backgro
                     }
                     await db.messages.insert_one(message_doc)
                     
+                    # Trigger user webhooks
                     background_tasks.add_task(
                         trigger_webhooks,
                         instance["id"],
                         "message.received",
                         {"message_id": message_id, "from": sender, "text": text}
                     )
+                    
+                    # Forward to Botpress if configured
+                    if instance.get("botpress_config", {}).get("is_active"):
+                        background_tasks.add_task(
+                            forward_to_botpress,
+                            instance,
+                            sender,
+                            text,
+                            message_id
+                        )
         
         return {"status": "processed"}
     except Exception as e:
