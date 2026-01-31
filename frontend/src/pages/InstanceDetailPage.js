@@ -321,11 +321,12 @@ const InstanceDetailPage = () => {
                         id="phone"
                         value={phoneNumber}
                         onChange={(e) => setPhoneNumber(e.target.value)}
-                        placeholder="+1234567890"
+                        placeholder="254712345678"
                         className="bg-[#0A0A0A] border-white/10 pl-10"
                         data-testid="send-phone-input"
                       />
                     </div>
+                    <p className="text-xs text-neutral-500">Enter number with country code (e.g., 254 for Kenya, 1 for USA)</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="message">Message</Label>
