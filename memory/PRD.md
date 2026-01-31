@@ -9,6 +9,10 @@ User had a Telenexus API app with simulated WhatsApp instance management. The re
 - **Database**: MongoDB (local) - stores Telenexus app data (users, API keys, logs, webhooks)
 - **External API**: Evolution API (https://evoapi.telenexustechnologies.com) - handles WhatsApp connections
 
+## Instance Types (2026-01-31)
+1. **Billing Instance** - For WISPMAN/payment notifications, invoices
+2. **Botpress Instance** - For AI chatbot integration
+
 ## Integration Flow
 ```
 User -> Telenexus API -> Evolution API -> WhatsApp Web
@@ -20,64 +24,58 @@ User -> Telenexus API -> Evolution API -> WhatsApp Web
 ## What's Been Implemented (2026-01-31)
 
 ### Evolution API Integration
-1. **EvolutionAPIClient class** - Handles all Evolution API calls:
-   - `create_instance()` - Creates real WhatsApp instance
-   - `get_qr_code()` - Fetches QR code for connection
-   - `get_instance_connection_state()` - Checks connection status
-   - `send_text_message()` - Sends WhatsApp messages
-   - `delete_instance()` - Removes instance from Evolution API
-   - `logout_instance()` - Disconnects WhatsApp session
+1. **EvolutionAPIClient class** - Handles all Evolution API calls
+2. **Real WhatsApp instances** - Creation, QR codes, message sending, deletion
 
-2. **Modified Endpoints**:
-   - `POST /api/instances` - Creates real Evolution API instance, returns real QR code
-   - `GET /api/instances` - Syncs status from Evolution API
-   - `GET /api/instances/{id}` - Returns real QR code and status
-   - `DELETE /api/instances/{id}` - Deletes from both local DB and Evolution API
-   - `POST /api/instances/{id}/messages/send` - Sends real WhatsApp messages
-   - `GET /api/health` - Shows Evolution API connection status
+### Instance Type System
+- **Billing instances**: Show Billing & Interactive tabs
+- **Botpress instances**: Show Botpress configuration tab
 
-3. **Webhook Receiver** (`POST /api/evolution/webhook`) - Receives events from Evolution API
+### Botpress Integration
+- Webhook URL configuration
+- Token authentication
+- Message forwarding to Botpress
+- Reply endpoint for bot responses
+- Test connection feature
 
-### Configuration
-- Evolution API URL and Key stored in `/app/backend/.env`
-- Instance naming convention: `tnx_{user_id_8chars}_{clean_instance_name}`
+### Billing Features
+- Payment reminder messages
+- Invoice notifications
+- Overdue notices
+- Payment confirmations
+- (Note: Interactive buttons not supported in Baileys mode)
+
+### API Endpoints
+- `POST /api/instances` - Create instance (billing or botpress type)
+- `POST /api/instances/{id}/botpress` - Configure Botpress
+- `GET /api/instances/{id}/botpress` - Get Botpress config
+- `POST /api/instances/{id}/botpress/test` - Test connection
+- `POST /api/botpress/reply` - Receive bot replies
+- `POST /api/v1/billing/send-notification` - Public billing API
 
 ## User Personas
-1. **API Developers** - Build WhatsApp integrations using Telenexus API
-2. **Business Users** - Manage WhatsApp instances via dashboard
-
-## Core Requirements (Static)
-- [x] Real WhatsApp instance creation via Evolution API
-- [x] Real QR code generation for authentication
-- [x] Real message sending to WhatsApp
-- [x] Instance status sync from Evolution API
-- [x] Separate databases (Telenexus uses MongoDB, Evolution uses its own)
+1. **ISP Operators** - Use billing instances for WISPMAN integration
+2. **Bot Developers** - Use botpress instances for AI chatbots
 
 ## Prioritized Backlog
 
 ### P0 (Critical) - DONE
 - [x] Evolution API integration
-- [x] Real instance creation
-- [x] Real QR code retrieval
-- [x] Real message sending
+- [x] Instance type separation (billing/botpress)
+- [x] Botpress webhook integration
+- [x] Billing notification endpoints
 
 ### P1 (High Priority) - Pending
-- [ ] Configure Evolution API webhooks to send events to Telenexus webhook receiver
-- [ ] Handle incoming messages from Evolution API
-- [ ] Media message support (images, documents)
+- [ ] M-Pesa STK Push integration (for PayNow via reply system)
+- [ ] Invoice PDF generation
+- [ ] Reply-based payment flow (user replies "1" to pay)
 
 ### P2 (Medium Priority) - Future
-- [ ] Instance templates
-- [ ] Message scheduling
-- [ ] Bulk messaging
-- [ ] Analytics dashboard
-
-## Testing Status
-- Backend API: 100% functional
-- Frontend UI: Working (registration, login, dashboard, instance management)
-- Evolution API connectivity: Verified
+- [ ] WISPMAN direct integration
+- [ ] Message templates
+- [ ] Scheduled messages
 
 ## Next Tasks
-1. Set up Evolution API webhook configuration to send events to `/api/evolution/webhook`
-2. Test full message flow (send and receive)
-3. Add media message support
+1. Implement M-Pesa Daraja API integration
+2. Create reply-based payment flow
+3. Add invoice PDF generation
