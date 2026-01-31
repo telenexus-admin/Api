@@ -101,6 +101,28 @@ class MessageSend(BaseModel):
     message: str
     message_type: str = "text"
 
+class ButtonItem(BaseModel):
+    id: str
+    text: str
+
+class InteractiveMessageSend(BaseModel):
+    phone_number: str
+    title: str
+    description: str
+    footer: Optional[str] = None
+    buttons: List[ButtonItem]
+
+class BillingNotificationSend(BaseModel):
+    phone_number: str
+    customer_name: str
+    amount: float
+    currency: str = "KES"
+    invoice_id: str
+    due_date: Optional[str] = None
+    message_type: str = "payment_reminder"  # payment_reminder, invoice, overdue, confirmation
+    payment_url: Optional[str] = None
+    invoice_url: Optional[str] = None
+
 class MessageResponse(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str
