@@ -670,7 +670,9 @@ async def get_instances(current_user: dict = Depends(get_current_user)):
             created_at=inst["created_at"],
             updated_at=inst["updated_at"],
             qr_code=None,
-            evolution_instance_name=inst.get("evolution_instance_name")
+            evolution_instance_name=inst.get("evolution_instance_name"),
+            instance_type=inst.get("instance_type", "billing"),
+            botpress_config=inst.get("botpress_config") if inst.get("instance_type") == "botpress" else None
         ))
     
     return result
