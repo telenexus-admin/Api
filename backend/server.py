@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, BackgroundTasks
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, BackgroundTasks, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -13,9 +13,6 @@ from datetime import datetime, timezone, timedelta
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 import secrets
-import qrcode
-import io
-import base64
 import httpx
 import asyncio
 import json
@@ -32,6 +29,10 @@ db = client[os.environ['DB_NAME']]
 JWT_SECRET = os.environ.get('JWT_SECRET', 'telenexus_secret_key')
 JWT_ALGORITHM = os.environ.get('JWT_ALGORITHM', 'HS256')
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get('ACCESS_TOKEN_EXPIRE_MINUTES', 1440))
+
+# Evolution API Configuration
+EVOLUTION_API_URL = os.environ.get('EVOLUTION_API_URL', '').rstrip('/')
+EVOLUTION_API_KEY = os.environ.get('EVOLUTION_API_KEY', '')
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -93,6 +94,7 @@ class InstanceResponse(BaseModel):
     created_at: str
     updated_at: str
     qr_code: Optional[str] = None
+    evolution_instance_name: Optional[str] = None
 
 class MessageSend(BaseModel):
     phone_number: str
@@ -158,6 +160,131 @@ class DashboardStats(BaseModel):
     total_webhooks: int
     active_api_keys: int
 
+# ===================== EVOLUTION API CLIENT =====================
+
+class EvolutionAPIClient:
+    """Client for interacting with Evolution API"""
+    
+    def __init__(self):
+        self.base_url = EVOLUTION_API_URL
+        self.api_key = EVOLUTION_API_KEY
+        self.headers = {
+            "apikey": self.api_key,
+            "Content-Type": "application/json"
+        }
+    
+    async def create_instance(self, instance_name: str) -> Dict[str, Any]:
+        """Create a new WhatsApp instance in Evolution API"""
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            payload = {
+                "instanceName": instance_name,
+                "qrcode": True,
+                "integration": "WHATSAPP-BAILEYS"
+            }
+            response = await client.post(
+                f"{self.base_url}/instance/create",
+                json=payload,
+                headers=self.headers
+            )
+            logger.info(f"Evolution API create instance response: {response.status_code}")
+            if response.status_code not in [200, 201]:
+                logger.error(f"Evolution API error: {response.text}")
+                raise HTTPException(status_code=response.status_code, detail=f"Evolution API error: {response.text}")
+            return response.json()
+    
+    async def get_instance_connection_state(self, instance_name: str) -> Dict[str, Any]:
+        """Get connection state of an instance"""
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(
+                f"{self.base_url}/instance/connectionState/{instance_name}",
+                headers=self.headers
+            )
+            if response.status_code == 200:
+                return response.json()
+            return {"state": "close"}
+    
+    async def get_qr_code(self, instance_name: str) -> Dict[str, Any]:
+        """Get QR code for an instance"""
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(
+                f"{self.base_url}/instance/connect/{instance_name}",
+                headers=self.headers
+            )
+            logger.info(f"Evolution API QR code response: {response.status_code}")
+            if response.status_code == 200:
+                return response.json()
+            return None
+    
+    async def delete_instance(self, instance_name: str) -> bool:
+        """Delete an instance from Evolution API"""
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.delete(
+                f"{self.base_url}/instance/delete/{instance_name}",
+                headers=self.headers
+            )
+            return response.status_code in [200, 204]
+    
+    async def logout_instance(self, instance_name: str) -> bool:
+        """Logout/disconnect an instance"""
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.delete(
+                f"{self.base_url}/instance/logout/{instance_name}",
+                headers=self.headers
+            )
+            return response.status_code in [200, 204]
+    
+    async def send_text_message(self, instance_name: str, phone_number: str, message: str) -> Dict[str, Any]:
+        """Send a text message via Evolution API"""
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            # Format phone number - remove any non-numeric chars and ensure proper format
+            clean_number = ''.join(filter(str.isdigit, phone_number))
+            if not clean_number.endswith("@s.whatsapp.net"):
+                clean_number = f"{clean_number}@s.whatsapp.net"
+            
+            payload = {
+                "number": clean_number.replace("@s.whatsapp.net", ""),
+                "text": message
+            }
+            response = await client.post(
+                f"{self.base_url}/message/sendText/{instance_name}",
+                json=payload,
+                headers=self.headers
+            )
+            logger.info(f"Evolution API send message response: {response.status_code}")
+            if response.status_code not in [200, 201]:
+                logger.error(f"Evolution API send error: {response.text}")
+                raise HTTPException(status_code=response.status_code, detail=f"Failed to send message: {response.text}")
+            return response.json()
+    
+    async def fetch_instances(self) -> List[Dict[str, Any]]:
+        """Fetch all instances from Evolution API"""
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(
+                f"{self.base_url}/instance/fetchInstances",
+                headers=self.headers
+            )
+            if response.status_code == 200:
+                return response.json()
+            return []
+    
+    async def get_instance_info(self, instance_name: str) -> Dict[str, Any]:
+        """Get instance information including connection details"""
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(
+                f"{self.base_url}/instance/fetchInstances",
+                headers=self.headers,
+                params={"instanceName": instance_name}
+            )
+            if response.status_code == 200:
+                instances = response.json()
+                for inst in instances:
+                    if inst.get("instance", {}).get("instanceName") == instance_name:
+                        return inst
+            return None
+
+# Global Evolution API client
+evolution_client = EvolutionAPIClient()
+
 # ===================== HELPERS =====================
 
 def create_access_token(data: dict, expires_delta: timedelta = None):
@@ -175,16 +302,11 @@ def hash_password(password: str) -> str:
 def generate_api_key() -> str:
     return f"tnx_{secrets.token_urlsafe(32)}"
 
-def generate_qr_code(data: str) -> str:
-    """Generate QR code as base64 string"""
-    qr = qrcode.QRCode(version=1, box_size=10, border=5)
-    qr.add_data(data)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
-    buffer = io.BytesIO()
-    img.save(buffer, format='PNG')
-    buffer.seek(0)
-    return base64.b64encode(buffer.getvalue()).decode()
+def generate_instance_name(user_id: str, instance_name: str) -> str:
+    """Generate a unique Evolution instance name"""
+    short_id = user_id[:8]
+    clean_name = ''.join(c for c in instance_name if c.isalnum() or c in '-_')[:20]
+    return f"tnx_{short_id}_{clean_name}"
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     token = credentials.credentials
@@ -251,6 +373,16 @@ async def trigger_webhooks(instance_id: str, event: str, data: dict):
             )
         except Exception as e:
             logger.error(f"Webhook delivery failed: {e}")
+
+def map_evolution_state_to_status(state: str) -> str:
+    """Map Evolution API connection state to our status"""
+    state_mapping = {
+        "open": "connected",
+        "connecting": "connecting",
+        "close": "disconnected",
+        "closed": "disconnected"
+    }
+    return state_mapping.get(state.lower(), "disconnected")
 
 # ===================== AUTH ROUTES =====================
 
@@ -333,10 +465,25 @@ async def create_instance(instance_data: InstanceCreate, current_user: dict = De
     instance_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
     
-    # Generate unique session identifier for QR code
-    session_token = secrets.token_urlsafe(32)
-    qr_data = f"telenexus:{instance_id}:{session_token}"
-    qr_code_base64 = generate_qr_code(qr_data)
+    # Generate unique Evolution instance name
+    evolution_instance_name = generate_instance_name(current_user["id"], instance_data.name)
+    
+    # Create instance in Evolution API
+    try:
+        evolution_response = await evolution_client.create_instance(evolution_instance_name)
+        logger.info(f"Evolution instance created: {evolution_response}")
+    except Exception as e:
+        logger.error(f"Failed to create Evolution instance: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to create WhatsApp instance: {str(e)}")
+    
+    # Extract QR code from response
+    qr_code = None
+    if evolution_response:
+        qr_data = evolution_response.get("qrcode", {})
+        if isinstance(qr_data, dict):
+            qr_code = qr_data.get("base64")
+        elif isinstance(qr_data, str):
+            qr_code = qr_data
     
     instance_doc = {
         "id": instance_id,
@@ -345,14 +492,13 @@ async def create_instance(instance_data: InstanceCreate, current_user: dict = De
         "user_id": current_user["id"],
         "status": "disconnected",
         "phone_number": None,
-        "session_token": session_token,
-        "session_data": None,
+        "evolution_instance_name": evolution_instance_name,
         "created_at": now,
         "updated_at": now
     }
     
     await db.instances.insert_one(instance_doc)
-    await log_activity(current_user["id"], "instance.created", instance_id)
+    await log_activity(current_user["id"], "instance.created", instance_id, {"evolution_name": evolution_instance_name})
     
     return InstanceResponse(
         id=instance_id,
@@ -363,17 +509,61 @@ async def create_instance(instance_data: InstanceCreate, current_user: dict = De
         phone_number=None,
         created_at=now,
         updated_at=now,
-        qr_code=qr_code_base64
+        qr_code=qr_code,
+        evolution_instance_name=evolution_instance_name
     )
 
 @api_router.get("/instances", response_model=List[InstanceResponse])
 async def get_instances(current_user: dict = Depends(get_current_user)):
     instances = await db.instances.find(
         {"user_id": current_user["id"]},
-        {"_id": 0, "session_token": 0, "session_data": 0}
+        {"_id": 0}
     ).to_list(100)
     
-    return [InstanceResponse(**inst, qr_code=None) for inst in instances]
+    # Update status from Evolution API for each instance
+    result = []
+    for inst in instances:
+        status = inst.get("status", "disconnected")
+        phone_number = inst.get("phone_number")
+        
+        if inst.get("evolution_instance_name"):
+            try:
+                state_response = await evolution_client.get_instance_connection_state(inst["evolution_instance_name"])
+                if state_response:
+                    state = state_response.get("instance", {}).get("state") or state_response.get("state", "close")
+                    status = map_evolution_state_to_status(state)
+                    
+                    # Get phone number if connected
+                    if status == "connected":
+                        info = await evolution_client.get_instance_info(inst["evolution_instance_name"])
+                        if info:
+                            owner = info.get("instance", {}).get("owner")
+                            if owner:
+                                phone_number = owner.replace("@s.whatsapp.net", "")
+            except Exception as e:
+                logger.warning(f"Could not get Evolution state for {inst.get('evolution_instance_name')}: {e}")
+        
+        # Update local status if changed
+        if status != inst.get("status") or phone_number != inst.get("phone_number"):
+            await db.instances.update_one(
+                {"id": inst["id"]},
+                {"$set": {"status": status, "phone_number": phone_number, "updated_at": datetime.now(timezone.utc).isoformat()}}
+            )
+        
+        result.append(InstanceResponse(
+            id=inst["id"],
+            name=inst["name"],
+            description=inst.get("description"),
+            user_id=inst["user_id"],
+            status=status,
+            phone_number=phone_number,
+            created_at=inst["created_at"],
+            updated_at=inst["updated_at"],
+            qr_code=None,
+            evolution_instance_name=inst.get("evolution_instance_name")
+        ))
+    
+    return result
 
 @api_router.get("/instances/{instance_id}", response_model=InstanceResponse)
 async def get_instance(instance_id: str, current_user: dict = Depends(get_current_user)):
@@ -384,62 +574,107 @@ async def get_instance(instance_id: str, current_user: dict = Depends(get_curren
     if not instance:
         raise HTTPException(status_code=404, detail="Instance not found")
     
-    # Regenerate QR code if disconnected
+    status = instance.get("status", "disconnected")
+    phone_number = instance.get("phone_number")
     qr_code = None
-    if instance["status"] == "disconnected":
-        qr_data = f"telenexus:{instance_id}:{instance['session_token']}"
-        qr_code = generate_qr_code(qr_data)
+    
+    # Get current status and QR from Evolution API
+    if instance.get("evolution_instance_name"):
+        try:
+            state_response = await evolution_client.get_instance_connection_state(instance["evolution_instance_name"])
+            if state_response:
+                state = state_response.get("instance", {}).get("state") or state_response.get("state", "close")
+                status = map_evolution_state_to_status(state)
+                
+                # Get phone number if connected
+                if status == "connected":
+                    info = await evolution_client.get_instance_info(instance["evolution_instance_name"])
+                    if info:
+                        owner = info.get("instance", {}).get("owner")
+                        if owner:
+                            phone_number = owner.replace("@s.whatsapp.net", "")
+            
+            # Get QR code if not connected
+            if status != "connected":
+                qr_response = await evolution_client.get_qr_code(instance["evolution_instance_name"])
+                if qr_response:
+                    qr_code = qr_response.get("base64") or qr_response.get("qrcode", {}).get("base64")
+        except Exception as e:
+            logger.warning(f"Could not get Evolution data for {instance.get('evolution_instance_name')}: {e}")
+    
+    # Update local status if changed
+    if status != instance.get("status") or phone_number != instance.get("phone_number"):
+        await db.instances.update_one(
+            {"id": instance_id},
+            {"$set": {"status": status, "phone_number": phone_number, "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
     
     return InstanceResponse(
         id=instance["id"],
         name=instance["name"],
         description=instance.get("description"),
         user_id=instance["user_id"],
-        status=instance["status"],
-        phone_number=instance.get("phone_number"),
+        status=status,
+        phone_number=phone_number,
         created_at=instance["created_at"],
         updated_at=instance["updated_at"],
-        qr_code=qr_code
+        qr_code=qr_code,
+        evolution_instance_name=instance.get("evolution_instance_name")
     )
 
 @api_router.delete("/instances/{instance_id}")
 async def delete_instance(instance_id: str, current_user: dict = Depends(get_current_user)):
-    result = await db.instances.delete_one({"id": instance_id, "user_id": current_user["id"]})
-    if result.deleted_count == 0:
+    instance = await db.instances.find_one({"id": instance_id, "user_id": current_user["id"]})
+    if not instance:
         raise HTTPException(status_code=404, detail="Instance not found")
+    
+    # Delete from Evolution API
+    if instance.get("evolution_instance_name"):
+        try:
+            await evolution_client.delete_instance(instance["evolution_instance_name"])
+        except Exception as e:
+            logger.warning(f"Could not delete Evolution instance: {e}")
+    
+    # Delete from local database
+    await db.instances.delete_one({"id": instance_id})
     
     # Delete related data
     await db.messages.delete_many({"instance_id": instance_id})
     await db.webhooks.delete_many({"instance_id": instance_id})
-    await db.sessions.delete_many({"instance_id": instance_id})
     
     await log_activity(current_user["id"], "instance.deleted", instance_id)
     
     return {"message": "Instance deleted successfully"}
 
 @api_router.post("/instances/{instance_id}/connect")
-async def connect_instance(instance_id: str, phone_number: str = None, current_user: dict = Depends(get_current_user)):
-    """Simulate connecting an instance (for demo purposes)"""
+async def connect_instance(instance_id: str, current_user: dict = Depends(get_current_user)):
+    """Get QR code to connect an instance"""
     instance = await db.instances.find_one({"id": instance_id, "user_id": current_user["id"]})
     if not instance:
         raise HTTPException(status_code=404, detail="Instance not found")
     
-    now = datetime.now(timezone.utc).isoformat()
+    if not instance.get("evolution_instance_name"):
+        raise HTTPException(status_code=400, detail="Instance not properly configured")
     
-    # Update instance status
-    await db.instances.update_one(
-        {"id": instance_id},
-        {"$set": {
-            "status": "connected",
-            "phone_number": phone_number or "+1234567890",
-            "updated_at": now
-        }}
-    )
-    
-    await log_activity(current_user["id"], "instance.connected", instance_id)
-    await trigger_webhooks(instance_id, "instance.connected", {"instance_id": instance_id})
-    
-    return {"message": "Instance connected successfully", "status": "connected"}
+    # Get QR code from Evolution API
+    try:
+        qr_response = await evolution_client.get_qr_code(instance["evolution_instance_name"])
+        qr_code = None
+        if qr_response:
+            qr_code = qr_response.get("base64") or qr_response.get("qrcode", {}).get("base64")
+        
+        now = datetime.now(timezone.utc).isoformat()
+        await db.instances.update_one(
+            {"id": instance_id},
+            {"$set": {"status": "connecting", "updated_at": now}}
+        )
+        
+        await log_activity(current_user["id"], "instance.connect_requested", instance_id)
+        
+        return {"message": "Scan the QR code to connect", "qr_code": qr_code, "status": "connecting"}
+    except Exception as e:
+        logger.error(f"Failed to get QR code: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get QR code: {str(e)}")
 
 @api_router.post("/instances/{instance_id}/disconnect")
 async def disconnect_instance(instance_id: str, current_user: dict = Depends(get_current_user)):
@@ -448,8 +683,13 @@ async def disconnect_instance(instance_id: str, current_user: dict = Depends(get
     if not instance:
         raise HTTPException(status_code=404, detail="Instance not found")
     
-    now = datetime.now(timezone.utc).isoformat()
+    if instance.get("evolution_instance_name"):
+        try:
+            await evolution_client.logout_instance(instance["evolution_instance_name"])
+        except Exception as e:
+            logger.warning(f"Could not logout Evolution instance: {e}")
     
+    now = datetime.now(timezone.utc).isoformat()
     await db.instances.update_one(
         {"id": instance_id},
         {"$set": {"status": "disconnected", "updated_at": now}}
@@ -470,11 +710,26 @@ async def get_qr_code(instance_id: str, current_user: dict = Depends(get_current
     if not instance:
         raise HTTPException(status_code=404, detail="Instance not found")
     
-    if instance["status"] == "connected":
-        return {"qr_code": None, "message": "Instance already connected"}
+    # Check if already connected
+    if instance.get("evolution_instance_name"):
+        try:
+            state_response = await evolution_client.get_instance_connection_state(instance["evolution_instance_name"])
+            if state_response:
+                state = state_response.get("instance", {}).get("state") or state_response.get("state", "close")
+                if state == "open":
+                    return {"qr_code": None, "message": "Instance already connected"}
+        except Exception as e:
+            logger.warning(f"Could not check Evolution state: {e}")
     
-    qr_data = f"telenexus:{instance_id}:{instance['session_token']}"
-    qr_code = generate_qr_code(qr_data)
+    # Get QR code from Evolution API
+    qr_code = None
+    if instance.get("evolution_instance_name"):
+        try:
+            qr_response = await evolution_client.get_qr_code(instance["evolution_instance_name"])
+            if qr_response:
+                qr_code = qr_response.get("base64") or qr_response.get("qrcode", {}).get("base64")
+        except Exception as e:
+            logger.warning(f"Could not get QR code: {e}")
     
     return {"qr_code": qr_code}
 
@@ -491,11 +746,36 @@ async def send_message(
     if not instance:
         raise HTTPException(status_code=404, detail="Instance not found")
     
-    if instance["status"] != "connected":
-        raise HTTPException(status_code=400, detail="Instance is not connected")
+    if not instance.get("evolution_instance_name"):
+        raise HTTPException(status_code=400, detail="Instance not properly configured")
+    
+    # Check connection status
+    try:
+        state_response = await evolution_client.get_instance_connection_state(instance["evolution_instance_name"])
+        state = state_response.get("instance", {}).get("state") or state_response.get("state", "close")
+        if state != "open":
+            raise HTTPException(status_code=400, detail="Instance is not connected. Please scan QR code first.")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not verify connection status: {str(e)}")
     
     message_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
+    
+    # Send message via Evolution API
+    try:
+        evolution_response = await evolution_client.send_text_message(
+            instance["evolution_instance_name"],
+            message_data.phone_number,
+            message_data.message
+        )
+        message_status = "sent"
+        logger.info(f"Message sent via Evolution API: {evolution_response}")
+    except Exception as e:
+        logger.error(f"Failed to send message via Evolution API: {e}")
+        message_status = "failed"
+        raise HTTPException(status_code=500, detail=f"Failed to send message: {str(e)}")
     
     message_doc = {
         "id": message_id,
@@ -504,7 +784,7 @@ async def send_message(
         "message": message_data.message,
         "message_type": message_data.message_type,
         "direction": "outgoing",
-        "status": "sent",  # In real implementation, would be "pending" until confirmed
+        "status": message_status,
         "created_at": now
     }
     
@@ -682,7 +962,19 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
     # Get instance stats
     instances = await db.instances.find({"user_id": user_id}, {"_id": 0}).to_list(1000)
     total_instances = len(instances)
-    connected_instances = len([i for i in instances if i.get("status") == "connected"])
+    
+    # Update status from Evolution API and count connected
+    connected_instances = 0
+    for inst in instances:
+        if inst.get("evolution_instance_name"):
+            try:
+                state_response = await evolution_client.get_instance_connection_state(inst["evolution_instance_name"])
+                if state_response:
+                    state = state_response.get("instance", {}).get("state") or state_response.get("state", "close")
+                    if state == "open":
+                        connected_instances += 1
+            except:
+                pass
     
     # Get message stats
     total_messages = await db.messages.count_documents({
@@ -732,11 +1024,32 @@ async def api_send_message(
     if not instance:
         raise HTTPException(status_code=404, detail="Instance not found")
     
-    if instance["status"] != "connected":
-        raise HTTPException(status_code=400, detail="Instance is not connected")
+    if not instance.get("evolution_instance_name"):
+        raise HTTPException(status_code=400, detail="Instance not properly configured")
+    
+    # Check connection status
+    try:
+        state_response = await evolution_client.get_instance_connection_state(instance["evolution_instance_name"])
+        state = state_response.get("instance", {}).get("state") or state_response.get("state", "close")
+        if state != "open":
+            raise HTTPException(status_code=400, detail="Instance is not connected")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not verify connection status: {str(e)}")
     
     message_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
+    
+    # Send message via Evolution API
+    try:
+        await evolution_client.send_text_message(
+            instance["evolution_instance_name"],
+            message_data.phone_number,
+            message_data.message
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send message: {str(e)}")
     
     message_doc = {
         "id": message_id,
@@ -771,27 +1084,139 @@ async def api_get_status(instance_id: str, authorization: str = None):
     
     instance = await db.instances.find_one(
         {"id": instance_id, "user_id": user["id"]},
-        {"_id": 0, "session_token": 0, "session_data": 0}
+        {"_id": 0}
     )
     if not instance:
         raise HTTPException(status_code=404, detail="Instance not found")
     
+    status = "disconnected"
+    phone_number = instance.get("phone_number")
+    
+    if instance.get("evolution_instance_name"):
+        try:
+            state_response = await evolution_client.get_instance_connection_state(instance["evolution_instance_name"])
+            if state_response:
+                state = state_response.get("instance", {}).get("state") or state_response.get("state", "close")
+                status = map_evolution_state_to_status(state)
+        except:
+            pass
+    
     return {
         "instance_id": instance["id"],
-        "status": instance["status"],
-        "phone_number": instance.get("phone_number"),
+        "status": status,
+        "phone_number": phone_number,
         "name": instance["name"]
     }
+
+# ===================== EVOLUTION WEBHOOK RECEIVER =====================
+
+@api_router.post("/evolution/webhook")
+async def evolution_webhook_receiver(request: Request, background_tasks: BackgroundTasks):
+    """Receive webhooks from Evolution API"""
+    try:
+        payload = await request.json()
+        logger.info(f"Received Evolution webhook: {json.dumps(payload, default=str)[:500]}")
+        
+        event = payload.get("event")
+        instance_data = payload.get("instance")
+        instance_name = payload.get("instanceName") or (instance_data.get("instanceName") if instance_data else None)
+        
+        if not instance_name:
+            return {"status": "ignored", "reason": "no instance name"}
+        
+        # Find our instance by evolution_instance_name
+        instance = await db.instances.find_one({"evolution_instance_name": instance_name}, {"_id": 0})
+        if not instance:
+            return {"status": "ignored", "reason": "instance not found"}
+        
+        now = datetime.now(timezone.utc).isoformat()
+        
+        # Handle different event types
+        if event == "connection.update":
+            state = payload.get("data", {}).get("state") or payload.get("state", "close")
+            status = map_evolution_state_to_status(state)
+            
+            # Get phone number if connected
+            phone_number = instance.get("phone_number")
+            if status == "connected":
+                owner = payload.get("data", {}).get("owner")
+                if owner:
+                    phone_number = owner.replace("@s.whatsapp.net", "")
+            
+            await db.instances.update_one(
+                {"id": instance["id"]},
+                {"$set": {"status": status, "phone_number": phone_number, "updated_at": now}}
+            )
+            
+            # Trigger user webhooks
+            background_tasks.add_task(
+                trigger_webhooks,
+                instance["id"],
+                f"instance.{status}",
+                {"instance_id": instance["id"], "status": status}
+            )
+        
+        elif event in ["messages.upsert", "messages.update"]:
+            # Handle incoming messages
+            messages = payload.get("data", [])
+            if not isinstance(messages, list):
+                messages = [messages] if messages else []
+            
+            for msg in messages:
+                if msg.get("key", {}).get("fromMe"):
+                    continue  # Skip outgoing messages
+                
+                message_id = str(uuid.uuid4())
+                sender = msg.get("key", {}).get("remoteJid", "").replace("@s.whatsapp.net", "")
+                text = msg.get("message", {}).get("conversation") or msg.get("message", {}).get("extendedTextMessage", {}).get("text", "")
+                
+                if text:
+                    message_doc = {
+                        "id": message_id,
+                        "instance_id": instance["id"],
+                        "phone_number": sender,
+                        "message": text,
+                        "message_type": "text",
+                        "direction": "incoming",
+                        "status": "received",
+                        "created_at": now
+                    }
+                    await db.messages.insert_one(message_doc)
+                    
+                    background_tasks.add_task(
+                        trigger_webhooks,
+                        instance["id"],
+                        "message.received",
+                        {"message_id": message_id, "from": sender, "text": text}
+                    )
+        
+        return {"status": "processed"}
+    except Exception as e:
+        logger.error(f"Error processing Evolution webhook: {e}")
+        return {"status": "error", "message": str(e)}
 
 # ===================== HEALTH CHECK =====================
 
 @api_router.get("/")
 async def root():
-    return {"message": "Telenexus API v1.0", "status": "operational"}
+    return {"message": "Telenexus API v1.0", "status": "operational", "evolution_api": EVOLUTION_API_URL}
 
 @api_router.get("/health")
 async def health_check():
-    return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
+    # Check Evolution API connectivity
+    evolution_status = "unknown"
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(f"{EVOLUTION_API_URL}/", headers={"apikey": EVOLUTION_API_KEY})
+            evolution_status = "connected" if response.status_code == 200 else f"error: {response.status_code}"
+    except Exception as e:
+        evolution_status = f"error: {str(e)}"
+    
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "evolution_api": evolution_status
+    }
 
 # Include the router in the main app
 app.include_router(api_router)
