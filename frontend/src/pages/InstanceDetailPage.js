@@ -491,6 +491,358 @@ const InstanceDetailPage = () => {
           </Card>
         </TabsContent>
 
+        {/* Billing Messages Tab */}
+        <TabsContent value="billing">
+          <Card className="bg-[#121212] border-white/10">
+            <CardHeader>
+              <CardTitle style={{ fontFamily: 'Chivo, sans-serif' }}>
+                <CreditCard className="w-5 h-5 inline mr-2 text-[#00FF94]" />
+                Send Billing Notification
+              </CardTitle>
+              <CardDescription className="text-neutral-400">
+                Send payment reminders, invoices, and overdue notices with interactive buttons
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {instance.status !== 'connected' ? (
+                <div className="text-center py-8 text-neutral-400">
+                  <WifiOff className="w-12 h-12 mx-auto mb-4 text-neutral-600" />
+                  <p>Instance must be connected to send messages</p>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="billing-phone">Phone Number *</Label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+                        <Input
+                          id="billing-phone"
+                          value={billingPhone}
+                          onChange={(e) => setBillingPhone(e.target.value)}
+                          placeholder="254712345678"
+                          className="bg-[#0A0A0A] border-white/10 pl-10"
+                          data-testid="billing-phone-input"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="customer-name">Customer Name *</Label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+                        <Input
+                          id="customer-name"
+                          value={customerName}
+                          onChange={(e) => setCustomerName(e.target.value)}
+                          placeholder="John Doe"
+                          className="bg-[#0A0A0A] border-white/10 pl-10"
+                          data-testid="customer-name-input"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="amount">Amount *</Label>
+                      <div className="relative">
+                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+                        <Input
+                          id="amount"
+                          type="number"
+                          value={amount}
+                          onChange={(e) => setAmount(e.target.value)}
+                          placeholder="1500.00"
+                          className="bg-[#0A0A0A] border-white/10 pl-10"
+                          data-testid="amount-input"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="currency">Currency</Label>
+                      <Select value={currency} onValueChange={setCurrency}>
+                        <SelectTrigger className="bg-[#0A0A0A] border-white/10">
+                          <SelectValue placeholder="Select currency" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#121212] border-white/10">
+                          <SelectItem value="KES">KES (Kenya Shilling)</SelectItem>
+                          <SelectItem value="USD">USD (US Dollar)</SelectItem>
+                          <SelectItem value="EUR">EUR (Euro)</SelectItem>
+                          <SelectItem value="GBP">GBP (British Pound)</SelectItem>
+                          <SelectItem value="TZS">TZS (Tanzania Shilling)</SelectItem>
+                          <SelectItem value="UGX">UGX (Uganda Shilling)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="invoice-id">Invoice ID *</Label>
+                      <div className="relative">
+                        <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+                        <Input
+                          id="invoice-id"
+                          value={invoiceId}
+                          onChange={(e) => setInvoiceId(e.target.value)}
+                          placeholder="INV-001"
+                          className="bg-[#0A0A0A] border-white/10 pl-10"
+                          data-testid="invoice-id-input"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="due-date">Due Date (Optional)</Label>
+                      <div className="relative">
+                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+                        <Input
+                          id="due-date"
+                          type="date"
+                          value={dueDate}
+                          onChange={(e) => setDueDate(e.target.value)}
+                          className="bg-[#0A0A0A] border-white/10 pl-10"
+                          data-testid="due-date-input"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="message-type">Message Type *</Label>
+                      <Select value={messageType} onValueChange={setMessageType}>
+                        <SelectTrigger className="bg-[#0A0A0A] border-white/10">
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#121212] border-white/10">
+                          <SelectItem value="payment_reminder">
+                            <div className="flex items-center gap-2">
+                              <AlertCircle className="w-4 h-4 text-yellow-500" />
+                              Payment Reminder
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="invoice">
+                            <div className="flex items-center gap-2">
+                              <FileText className="w-4 h-4 text-blue-500" />
+                              New Invoice
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="overdue">
+                            <div className="flex items-center gap-2">
+                              <AlertCircle className="w-4 h-4 text-red-500" />
+                              Overdue Notice
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="confirmation">
+                            <div className="flex items-center gap-2">
+                              <CheckCircle className="w-4 h-4 text-green-500" />
+                              Payment Confirmation
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Preview */}
+                  <div className="bg-[#0A0A0A] rounded-lg p-4 border border-white/10">
+                    <p className="text-xs text-neutral-500 uppercase tracking-wider mb-2">Message Preview</p>
+                    <div className="bg-[#1a1a1a] rounded-lg p-3 text-sm text-neutral-300">
+                      <p className="font-medium text-white mb-1">
+                        {messageType === 'payment_reminder' && 'Payment Due Reminder'}
+                        {messageType === 'invoice' && 'New Invoice Generated'}
+                        {messageType === 'overdue' && 'Payment Overdue Notice'}
+                        {messageType === 'confirmation' && 'Payment Received'}
+                      </p>
+                      <p className="text-neutral-400">
+                        Dear {customerName || '[Customer Name]'},
+                        {messageType === 'payment_reminder' && ` your payment of ${currency} ${amount || '0'} is due.`}
+                        {messageType === 'invoice' && ` a new invoice of ${currency} ${amount || '0'} has been generated.`}
+                        {messageType === 'overdue' && ` your account is OVERDUE. Outstanding: ${currency} ${amount || '0'}.`}
+                        {messageType === 'confirmation' && ` we received your payment of ${currency} ${amount || '0'}.`}
+                      </p>
+                      <p className="text-neutral-500 text-xs mt-2">Invoice: #{invoiceId || 'INV-XXX'}</p>
+                      <div className="flex gap-2 mt-3">
+                        {messageType !== 'confirmation' && (
+                          <span className="bg-[#00FF94]/20 text-[#00FF94] px-3 py-1 rounded-full text-xs">PayNow</span>
+                        )}
+                        <span className="bg-white/10 text-white px-3 py-1 rounded-full text-xs">Invoice</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button 
+                    onClick={handleSendBillingMessage}
+                    disabled={sendingBilling}
+                    className="bg-[#00FF94] text-black hover:bg-[#00CC76] font-bold w-full"
+                    data-testid="send-billing-btn"
+                  >
+                    {sendingBilling ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <CreditCard className="w-4 h-4 mr-2" />
+                        Send Billing Notification
+                      </>
+                    )}
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Interactive Messages Tab */}
+        <TabsContent value="interactive">
+          <Card className="bg-[#121212] border-white/10">
+            <CardHeader>
+              <CardTitle style={{ fontFamily: 'Chivo, sans-serif' }}>
+                <MessageSquare className="w-5 h-5 inline mr-2 text-[#00FF94]" />
+                Send Interactive Message
+              </CardTitle>
+              <CardDescription className="text-neutral-400">
+                Create custom messages with up to 3 interactive buttons
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {instance.status !== 'connected' ? (
+                <div className="text-center py-8 text-neutral-400">
+                  <WifiOff className="w-12 h-12 mx-auto mb-4 text-neutral-600" />
+                  <p>Instance must be connected to send messages</p>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="interactive-phone">Phone Number *</Label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+                      <Input
+                        id="interactive-phone"
+                        value={interactivePhone}
+                        onChange={(e) => setInteractivePhone(e.target.value)}
+                        placeholder="254712345678"
+                        className="bg-[#0A0A0A] border-white/10 pl-10"
+                        data-testid="interactive-phone-input"
+                      />
+                    </div>
+                    <p className="text-xs text-neutral-500">Enter number with country code</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="interactive-title">Title * (max 60 chars)</Label>
+                    <Input
+                      id="interactive-title"
+                      value={interactiveTitle}
+                      onChange={(e) => setInteractiveTitle(e.target.value.slice(0, 60))}
+                      placeholder="Message Title"
+                      className="bg-[#0A0A0A] border-white/10"
+                      data-testid="interactive-title-input"
+                    />
+                    <p className="text-xs text-neutral-500">{interactiveTitle.length}/60</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="interactive-description">Description * (max 1024 chars)</Label>
+                    <Textarea
+                      id="interactive-description"
+                      value={interactiveDescription}
+                      onChange={(e) => setInteractiveDescription(e.target.value.slice(0, 1024))}
+                      placeholder="Your message content here..."
+                      className="bg-[#0A0A0A] border-white/10 min-h-[100px]"
+                      data-testid="interactive-description-input"
+                    />
+                    <p className="text-xs text-neutral-500">{interactiveDescription.length}/1024</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="interactive-footer">Footer (optional, max 60 chars)</Label>
+                    <Input
+                      id="interactive-footer"
+                      value={interactiveFooter}
+                      onChange={(e) => setInteractiveFooter(e.target.value.slice(0, 60))}
+                      placeholder="Footer text"
+                      className="bg-[#0A0A0A] border-white/10"
+                      data-testid="interactive-footer-input"
+                    />
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label>Buttons * (max 3, 20 chars each)</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={addButton}
+                        disabled={buttons.length >= 3}
+                        className="border-white/10 hover:bg-white/5"
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Add Button
+                      </Button>
+                    </div>
+                    {buttons.map((button, index) => (
+                      <div key={index} className="flex gap-2">
+                        <Input
+                          value={button.text}
+                          onChange={(e) => updateButton(index, e.target.value.slice(0, 20))}
+                          placeholder={`Button ${index + 1} text`}
+                          className="bg-[#0A0A0A] border-white/10"
+                          data-testid={`button-${index}-input`}
+                        />
+                        {buttons.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeButton(index)}
+                            className="hover:bg-red-500/10 hover:text-red-500"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Preview */}
+                  <div className="bg-[#0A0A0A] rounded-lg p-4 border border-white/10">
+                    <p className="text-xs text-neutral-500 uppercase tracking-wider mb-2">Message Preview</p>
+                    <div className="bg-[#1a1a1a] rounded-lg p-3 text-sm text-neutral-300">
+                      <p className="font-medium text-white mb-1">{interactiveTitle || '[Title]'}</p>
+                      <p className="text-neutral-400 whitespace-pre-wrap">{interactiveDescription || '[Description]'}</p>
+                      {interactiveFooter && <p className="text-neutral-500 text-xs mt-2">{interactiveFooter}</p>}
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        {buttons.filter(b => b.text).map((btn, i) => (
+                          <span key={i} className="bg-[#00FF94]/20 text-[#00FF94] px-3 py-1 rounded-full text-xs">
+                            {btn.text}
+                          </span>
+                        ))}
+                        {buttons.filter(b => b.text).length === 0 && (
+                          <span className="text-neutral-600 text-xs">[Add buttons above]</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button 
+                    onClick={handleSendInteractiveMessage}
+                    disabled={sendingInteractive}
+                    className="bg-[#00FF94] text-black hover:bg-[#00CC76] font-bold w-full"
+                    data-testid="send-interactive-btn"
+                  >
+                    {sendingInteractive ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4 mr-2" />
+                        Send Interactive Message
+                      </>
+                    )}
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* Messages Tab */}
         <TabsContent value="messages">
           <Card className="bg-[#121212] border-white/10">
@@ -528,14 +880,21 @@ const InstanceDetailPage = () => {
                         <span className="text-sm font-medium text-neutral-300">
                           {msg.direction === 'outgoing' ? 'To: ' : 'From: '}{msg.phone_number}
                         </span>
-                        <span className={`text-xs ${
-                          msg.status === 'sent' ? 'text-[#00FF94]' : 
-                          msg.status === 'failed' ? 'text-[#FF5500]' : 'text-neutral-500'
-                        }`}>
-                          {msg.status}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          {msg.message_type && msg.message_type !== 'text' && (
+                            <span className="text-xs bg-white/10 px-2 py-0.5 rounded">
+                              {msg.message_type.replace('billing_', '').replace('_', ' ')}
+                            </span>
+                          )}
+                          <span className={`text-xs ${
+                            msg.status === 'sent' ? 'text-[#00FF94]' : 
+                            msg.status === 'failed' ? 'text-[#FF5500]' : 'text-neutral-500'
+                          }`}>
+                            {msg.status}
+                          </span>
+                        </div>
                       </div>
-                      <p className="text-neutral-400 text-sm">{msg.message}</p>
+                      <p className="text-neutral-400 text-sm whitespace-pre-wrap">{msg.message}</p>
                       <p className="text-xs text-neutral-600 mt-2">
                         {new Date(msg.created_at).toLocaleString()}
                       </p>
