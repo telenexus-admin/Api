@@ -9,7 +9,9 @@ import {
   Wifi,
   WifiOff,
   Loader2,
-  QrCode
+  QrCode,
+  Bot,
+  CreditCard
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -51,6 +53,7 @@ const InstancesPage = () => {
   const [selectedInstance, setSelectedInstance] = useState(null);
   const [newInstanceName, setNewInstanceName] = useState('');
   const [newInstanceDescription, setNewInstanceDescription] = useState('');
+  const [newInstanceType, setNewInstanceType] = useState('billing');
   const [creating, setCreating] = useState(false);
   const navigate = useNavigate();
 
