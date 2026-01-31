@@ -20,7 +20,12 @@ import {
   DollarSign,
   Calendar,
   Plus,
-  Trash2
+  Trash2,
+  Bot,
+  Link,
+  Key,
+  Power,
+  TestTube
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -70,11 +75,33 @@ const InstanceDetailPage = () => {
   const [interactiveFooter, setInteractiveFooter] = useState('');
   const [buttons, setButtons] = useState([{ id: 'btn_1', text: '' }]);
   const [sendingInteractive, setSendingInteractive] = useState(false);
+  
+  // Botpress integration state
+  const [botpressWebhook, setBotpressWebhook] = useState('');
+  const [botpressToken, setBotpressToken] = useState('');
+  const [botpressActive, setBotpressActive] = useState(false);
+  const [botpressConfigured, setBotpressConfigured] = useState(false);
+  const [savingBotpress, setSavingBotpress] = useState(false);
+  const [testingBotpress, setTestingBotpress] = useState(false);
 
   useEffect(() => {
     fetchInstance();
     fetchMessages();
+    fetchBotpressConfig();
   }, [id]);
+
+  const fetchBotpressConfig = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/instances/${id}/botpress`);
+      if (response.data.webhook_url) {
+        setBotpressWebhook(response.data.webhook_url);
+        setBotpressActive(response.data.is_active);
+        setBotpressConfigured(true);
+      }
+    } catch (error) {
+      // Not configured yet
+    }
+  };
 
   const fetchInstance = async () => {
     try {
