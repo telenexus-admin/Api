@@ -123,6 +123,22 @@ class BillingNotificationSend(BaseModel):
     payment_url: Optional[str] = None
     invoice_url: Optional[str] = None
 
+class BotpressConfig(BaseModel):
+    webhook_url: str
+    token: str
+    is_active: bool = True
+
+class BotpressConfigUpdate(BaseModel):
+    webhook_url: Optional[str] = None
+    token: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class BotpressMessage(BaseModel):
+    instance_id: str
+    phone_number: str
+    message: str
+    message_type: str = "text"
+
 class MessageResponse(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str
