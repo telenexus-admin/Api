@@ -1198,6 +1198,246 @@ async def api_send_billing_notification(
     
     return {"success": True, "message_id": message_id, "invoice_id": billing_data.invoice_id}
 
+# ===================== BOTPRESS INTEGRATION ROUTES =====================
+
+async def forward_to_botpress(instance: dict, phone_number: str, message: str, message_id: str):
+    """Forward incoming message to Botpress webhook"""
+    botpress_config = instance.get("botpress_config")
+    if not botpress_config or not botpress_config.get("is_active"):
+        return None
+    
+    webhook_url = botpress_config.get("webhook_url")
+    token = botpress_config.get("token")
+    
+    if not webhook_url:
+        return None
+    
+    try:
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}" if token else ""
+        }
+        
+        payload = {
+            "type": "text",
+            "text": message,
+            "userId": phone_number,
+            "conversationId": f"{instance['id']}_{phone_number}",
+            "messageId": message_id,
+            "instance_id": instance["id"],
+            "phone_number": phone_number,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(webhook_url, json=payload, headers=headers)
+            logger.info(f"Botpress webhook response: {response.status_code}")
+            
+            if response.status_code in [200, 201]:
+                return response.json()
+            else:
+                logger.error(f"Botpress webhook failed: {response.text}")
+                return None
+    except Exception as e:
+        logger.error(f"Failed to forward to Botpress: {e}")
+        return None
+
+@api_router.post("/instances/{instance_id}/botpress")
+async def configure_botpress(
+    instance_id: str,
+    config: BotpressConfig,
+    current_user: dict = Depends(get_current_user)
+):
+    """Configure Botpress integration for an instance"""
+    instance = await db.instances.find_one({"id": instance_id, "user_id": current_user["id"]})
+    if not instance:
+        raise HTTPException(status_code=404, detail="Instance not found")
+    
+    botpress_config = {
+        "webhook_url": config.webhook_url,
+        "token": config.token,
+        "is_active": config.is_active,
+        "configured_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.instances.update_one(
+        {"id": instance_id},
+        {"$set": {"botpress_config": botpress_config, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    await log_activity(current_user["id"], "botpress.configured", instance_id)
+    
+    return {
+        "success": True, 
+        "message": "Botpress integration configured successfully",
+        "webhook_url": config.webhook_url,
+        "is_active": config.is_active
+    }
+
+@api_router.get("/instances/{instance_id}/botpress")
+async def get_botpress_config(
+    instance_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get Botpress configuration for an instance"""
+    instance = await db.instances.find_one({"id": instance_id, "user_id": current_user["id"]}, {"_id": 0})
+    if not instance:
+        raise HTTPException(status_code=404, detail="Instance not found")
+    
+    botpress_config = instance.get("botpress_config", {})
+    
+    return {
+        "instance_id": instance_id,
+        "webhook_url": botpress_config.get("webhook_url", ""),
+        "token": "***" + botpress_config.get("token", "")[-4:] if botpress_config.get("token") else "",
+        "is_active": botpress_config.get("is_active", False),
+        "configured_at": botpress_config.get("configured_at")
+    }
+
+@api_router.patch("/instances/{instance_id}/botpress")
+async def update_botpress_config(
+    instance_id: str,
+    config: BotpressConfigUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    """Update Botpress configuration"""
+    instance = await db.instances.find_one({"id": instance_id, "user_id": current_user["id"]})
+    if not instance:
+        raise HTTPException(status_code=404, detail="Instance not found")
+    
+    existing_config = instance.get("botpress_config", {})
+    
+    update_fields = {}
+    if config.webhook_url is not None:
+        update_fields["botpress_config.webhook_url"] = config.webhook_url
+    if config.token is not None:
+        update_fields["botpress_config.token"] = config.token
+    if config.is_active is not None:
+        update_fields["botpress_config.is_active"] = config.is_active
+    
+    if update_fields:
+        update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
+        await db.instances.update_one({"id": instance_id}, {"$set": update_fields})
+    
+    await log_activity(current_user["id"], "botpress.updated", instance_id)
+    
+    return {"success": True, "message": "Botpress configuration updated"}
+
+@api_router.delete("/instances/{instance_id}/botpress")
+async def remove_botpress_config(
+    instance_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Remove Botpress integration from an instance"""
+    instance = await db.instances.find_one({"id": instance_id, "user_id": current_user["id"]})
+    if not instance:
+        raise HTTPException(status_code=404, detail="Instance not found")
+    
+    await db.instances.update_one(
+        {"id": instance_id},
+        {"$unset": {"botpress_config": ""}, "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    await log_activity(current_user["id"], "botpress.removed", instance_id)
+    
+    return {"success": True, "message": "Botpress integration removed"}
+
+@api_router.post("/instances/{instance_id}/botpress/test")
+async def test_botpress_connection(
+    instance_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Test Botpress webhook connection"""
+    instance = await db.instances.find_one({"id": instance_id, "user_id": current_user["id"]})
+    if not instance:
+        raise HTTPException(status_code=404, detail="Instance not found")
+    
+    botpress_config = instance.get("botpress_config")
+    if not botpress_config:
+        raise HTTPException(status_code=400, detail="Botpress not configured for this instance")
+    
+    webhook_url = botpress_config.get("webhook_url")
+    token = botpress_config.get("token")
+    
+    try:
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}" if token else ""
+        }
+        
+        test_payload = {
+            "type": "test",
+            "text": "Test connection from Telenexus",
+            "userId": "test_user",
+            "conversationId": f"{instance_id}_test",
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(webhook_url, json=test_payload, headers=headers)
+            
+            return {
+                "success": response.status_code in [200, 201, 202, 204],
+                "status_code": response.status_code,
+                "message": "Connection successful" if response.status_code in [200, 201, 202, 204] else f"Connection failed: {response.text[:200]}"
+            }
+    except httpx.TimeoutException:
+        return {"success": False, "message": "Connection timeout - webhook URL not responding"}
+    except Exception as e:
+        return {"success": False, "message": f"Connection failed: {str(e)}"}
+
+@api_router.post("/botpress/reply")
+async def botpress_reply(
+    message: BotpressMessage,
+    authorization: str = None
+):
+    """Endpoint for Botpress to send replies back to WhatsApp users"""
+    # Verify the request (can use API key or instance token)
+    instance = await db.instances.find_one({"id": message.instance_id}, {"_id": 0})
+    if not instance:
+        raise HTTPException(status_code=404, detail="Instance not found")
+    
+    botpress_config = instance.get("botpress_config", {})
+    
+    # Optional: Verify token matches
+    if authorization:
+        token = authorization.replace("Bearer ", "")
+        if botpress_config.get("token") and token != botpress_config.get("token"):
+            raise HTTPException(status_code=401, detail="Invalid token")
+    
+    if not instance.get("evolution_instance_name"):
+        raise HTTPException(status_code=400, detail="Instance not properly configured")
+    
+    # Send message via Evolution API
+    try:
+        await evolution_client.send_text_message(
+            instance["evolution_instance_name"],
+            message.phone_number,
+            message.message
+        )
+        
+        # Store message in database
+        message_id = str(uuid.uuid4())
+        now = datetime.now(timezone.utc).isoformat()
+        
+        message_doc = {
+            "id": message_id,
+            "instance_id": message.instance_id,
+            "phone_number": message.phone_number,
+            "message": message.message,
+            "message_type": "botpress_reply",
+            "direction": "outgoing",
+            "status": "sent",
+            "created_at": now
+        }
+        
+        await db.messages.insert_one(message_doc)
+        
+        return {"success": True, "message_id": message_id}
+    except Exception as e:
+        logger.error(f"Failed to send Botpress reply: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to send message: {str(e)}")
+
 # ===================== WEBHOOK ROUTES =====================
 
 @api_router.post("/instances/{instance_id}/webhooks", response_model=WebhookResponse)
