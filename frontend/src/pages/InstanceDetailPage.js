@@ -440,6 +440,10 @@ const InstanceDetailPage = () => {
           <TabsTrigger value="interactive" className="data-[state=active]:bg-[#00FF94] data-[state=active]:text-black">
             Interactive
           </TabsTrigger>
+          <TabsTrigger value="botpress" className="data-[state=active]:bg-[#00FF94] data-[state=active]:text-black">
+            <Bot className="w-4 h-4 mr-1" />
+            Botpress
+          </TabsTrigger>
           <TabsTrigger value="messages" className="data-[state=active]:bg-[#00FF94] data-[state=active]:text-black">
             Messages
           </TabsTrigger>
