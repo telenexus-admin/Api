@@ -82,12 +82,14 @@ const InstancesPage = () => {
     try {
       const response = await axios.post(`${API_URL}/instances`, {
         name: newInstanceName,
-        description: newInstanceDescription || null
+        description: newInstanceDescription || null,
+        instance_type: newInstanceType
       });
       setInstances([...instances, response.data]);
       setCreateDialogOpen(false);
       setNewInstanceName('');
       setNewInstanceDescription('');
+      setNewInstanceType('billing');
       toast.success('Instance created successfully');
       navigate(`/dashboard/instances/${response.data.id}`);
     } catch (error) {
@@ -109,6 +111,23 @@ const InstancesPage = () => {
     } catch (error) {
       toast.error('Failed to delete instance');
     }
+  };
+
+  const getTypeBadge = (type) => {
+    if (type === 'botpress') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-purple-500/20 text-purple-400 border border-purple-500/30">
+          <Bot className="w-3 h-3" />
+          Botpress
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-500/20 text-blue-400 border border-blue-500/30">
+        <CreditCard className="w-3 h-3" />
+        Billing
+      </span>
+    );
   };
 
   const getStatusBadge = (status) => {
