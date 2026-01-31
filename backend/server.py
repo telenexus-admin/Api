@@ -731,7 +731,9 @@ async def get_instance(instance_id: str, current_user: dict = Depends(get_curren
         created_at=instance["created_at"],
         updated_at=instance["updated_at"],
         qr_code=qr_code,
-        evolution_instance_name=instance.get("evolution_instance_name")
+        evolution_instance_name=instance.get("evolution_instance_name"),
+        instance_type=instance.get("instance_type", "billing"),
+        botpress_config=instance.get("botpress_config") if instance.get("instance_type") == "botpress" else None
     )
 
 @api_router.delete("/instances/{instance_id}")
