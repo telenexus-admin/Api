@@ -217,11 +217,18 @@ const InstancesPage = () => {
               data-testid={`instance-card-${instance.id}`}
             >
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-[#00FF94]/10 rounded-lg flex items-center justify-center text-[#00FF94]">
-                  <Server className="w-6 h-6" />
+                <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
+                  instance.instance_type === 'botpress' 
+                    ? 'bg-purple-500/10 text-purple-400' 
+                    : 'bg-[#00FF94]/10 text-[#00FF94]'
+                }`}>
+                  {instance.instance_type === 'botpress' ? <Bot className="w-6 h-6" /> : <CreditCard className="w-6 h-6" />}
                 </div>
                 <div>
-                  <h3 className="font-medium mb-1">{instance.name}</h3>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-medium">{instance.name}</h3>
+                    {getTypeBadge(instance.instance_type)}
+                  </div>
                   <div className="flex items-center gap-4 text-sm text-neutral-500">
                     {instance.phone_number && (
                       <span>{instance.phone_number}</span>
