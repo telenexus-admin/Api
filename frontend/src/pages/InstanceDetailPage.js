@@ -11,7 +11,16 @@ import {
   Phone,
   MessageSquare,
   Copy,
-  Check
+  Check,
+  CreditCard,
+  FileText,
+  AlertCircle,
+  CheckCircle,
+  User,
+  DollarSign,
+  Calendar,
+  Plus,
+  Trash2
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -19,8 +28,15 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
 
 const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -36,6 +52,24 @@ const InstanceDetailPage = () => {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [copied, setCopied] = useState(false);
+  
+  // Billing message state
+  const [billingPhone, setBillingPhone] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [amount, setAmount] = useState('');
+  const [currency, setCurrency] = useState('KES');
+  const [invoiceId, setInvoiceId] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [messageType, setMessageType] = useState('payment_reminder');
+  const [sendingBilling, setSendingBilling] = useState(false);
+  
+  // Interactive message state
+  const [interactivePhone, setInteractivePhone] = useState('');
+  const [interactiveTitle, setInteractiveTitle] = useState('');
+  const [interactiveDescription, setInteractiveDescription] = useState('');
+  const [interactiveFooter, setInteractiveFooter] = useState('');
+  const [buttons, setButtons] = useState([{ id: 'btn_1', text: '' }]);
+  const [sendingInteractive, setSendingInteractive] = useState(false);
 
   useEffect(() => {
     fetchInstance();
