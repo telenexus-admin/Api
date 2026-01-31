@@ -335,12 +335,18 @@ const InstanceDetailPage = () => {
       </Card>
 
       <Tabs defaultValue="qr" className="space-y-6">
-        <TabsList className="bg-[#121212] border border-white/10">
+        <TabsList className="bg-[#121212] border border-white/10 flex-wrap">
           <TabsTrigger value="qr" className="data-[state=active]:bg-[#00FF94] data-[state=active]:text-black">
             QR Code
           </TabsTrigger>
           <TabsTrigger value="send" className="data-[state=active]:bg-[#00FF94] data-[state=active]:text-black">
-            Send Message
+            Text Message
+          </TabsTrigger>
+          <TabsTrigger value="billing" className="data-[state=active]:bg-[#00FF94] data-[state=active]:text-black">
+            Billing
+          </TabsTrigger>
+          <TabsTrigger value="interactive" className="data-[state=active]:bg-[#00FF94] data-[state=active]:text-black">
+            Interactive
           </TabsTrigger>
           <TabsTrigger value="messages" className="data-[state=active]:bg-[#00FF94] data-[state=active]:text-black">
             Messages
