@@ -82,6 +82,7 @@ class TokenResponse(BaseModel):
 class InstanceCreate(BaseModel):
     name: str
     description: Optional[str] = None
+    instance_type: str = "billing"  # billing, botpress
 
 class InstanceResponse(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -95,6 +96,8 @@ class InstanceResponse(BaseModel):
     updated_at: str
     qr_code: Optional[str] = None
     evolution_instance_name: Optional[str] = None
+    instance_type: str = "billing"  # billing, botpress
+    botpress_config: Optional[Dict[str, Any]] = None
 
 class MessageSend(BaseModel):
     phone_number: str
