@@ -278,6 +278,65 @@ class EvolutionAPIClient:
                 raise HTTPException(status_code=response.status_code, detail=f"Failed to send message: {response.text}")
             return response.json()
     
+    async def send_button_message(self, instance_name: str, phone_number: str, title: str, description: str, footer: str, buttons: List[Dict]) -> Dict[str, Any]:
+        """Send an interactive button message via Evolution API"""
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            clean_number = ''.join(filter(str.isdigit, phone_number))
+            
+            # Format buttons for Evolution API
+            formatted_buttons = []
+            for btn in buttons:
+                formatted_buttons.append({
+                    "type": "reply",
+                    "reply": {
+                        "id": btn.get("id", str(uuid.uuid4())),
+                        "title": btn.get("text", "Button")[:20]  # WhatsApp limits button text to 20 chars
+                    }
+                })
+            
+            payload = {
+                "number": clean_number,
+                "title": title[:60],  # WhatsApp limits
+                "description": description[:1024],
+                "footer": footer[:60] if footer else "",
+                "buttons": formatted_buttons
+            }
+            
+            response = await client.post(
+                f"{self.base_url}/message/sendButtons/{instance_name}",
+                json=payload,
+                headers=self.headers
+            )
+            logger.info(f"Evolution API send buttons response: {response.status_code}")
+            if response.status_code not in [200, 201]:
+                logger.error(f"Evolution API send buttons error: {response.text}")
+                raise HTTPException(status_code=response.status_code, detail=f"Failed to send button message: {response.text}")
+            return response.json()
+    
+    async def send_list_message(self, instance_name: str, phone_number: str, title: str, description: str, button_text: str, sections: List[Dict]) -> Dict[str, Any]:
+        """Send a list message via Evolution API"""
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            clean_number = ''.join(filter(str.isdigit, phone_number))
+            
+            payload = {
+                "number": clean_number,
+                "title": title,
+                "description": description,
+                "buttonText": button_text,
+                "sections": sections
+            }
+            
+            response = await client.post(
+                f"{self.base_url}/message/sendList/{instance_name}",
+                json=payload,
+                headers=self.headers
+            )
+            logger.info(f"Evolution API send list response: {response.status_code}")
+            if response.status_code not in [200, 201]:
+                logger.error(f"Evolution API send list error: {response.text}")
+                raise HTTPException(status_code=response.status_code, detail=f"Failed to send list message: {response.text}")
+            return response.json()
+    
     async def fetch_instances(self) -> List[Dict[str, Any]]:
         """Fetch all instances from Evolution API"""
         async with httpx.AsyncClient(timeout=30.0) as client:
