@@ -287,17 +287,67 @@ const InstancesPage = () => {
           <DialogHeader>
             <DialogTitle style={{ fontFamily: 'Chivo, sans-serif' }}>Create New Instance</DialogTitle>
             <DialogDescription className="text-neutral-400">
-              Create a new WhatsApp instance to start sending messages
+              Choose an instance type and configure your WhatsApp connection
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* Instance Type Selection */}
+            <div className="space-y-3">
+              <Label>Instance Type *</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setNewInstanceType('billing')}
+                  className={`p-4 rounded-lg border-2 transition-all text-left ${
+                    newInstanceType === 'billing'
+                      ? 'border-[#00FF94] bg-[#00FF94]/10'
+                      : 'border-white/10 hover:border-white/20 bg-[#0A0A0A]'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                      newInstanceType === 'billing' ? 'bg-[#00FF94]/20 text-[#00FF94]' : 'bg-white/10 text-neutral-400'
+                    }`}>
+                      <CreditCard className="w-5 h-5" />
+                    </div>
+                    <span className="font-medium">Billing</span>
+                  </div>
+                  <p className="text-xs text-neutral-500">
+                    For payment reminders, invoices, and business notifications
+                  </p>
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={() => setNewInstanceType('botpress')}
+                  className={`p-4 rounded-lg border-2 transition-all text-left ${
+                    newInstanceType === 'botpress'
+                      ? 'border-purple-500 bg-purple-500/10'
+                      : 'border-white/10 hover:border-white/20 bg-[#0A0A0A]'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                      newInstanceType === 'botpress' ? 'bg-purple-500/20 text-purple-400' : 'bg-white/10 text-neutral-400'
+                    }`}>
+                      <Bot className="w-5 h-5" />
+                    </div>
+                    <span className="font-medium">Botpress</span>
+                  </div>
+                  <p className="text-xs text-neutral-500">
+                    For AI chatbots and automated conversations
+                  </p>
+                </button>
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="instance-name">Instance Name *</Label>
               <Input
                 id="instance-name"
                 value={newInstanceName}
                 onChange={(e) => setNewInstanceName(e.target.value)}
-                placeholder="e.g., Support Bot"
+                placeholder={newInstanceType === 'botpress' ? 'e.g., Support Bot' : 'e.g., Billing Notifications'}
                 className="bg-[#0A0A0A] border-white/10"
                 data-testid="instance-name-input"
               />
@@ -321,7 +371,11 @@ const InstancesPage = () => {
             <Button 
               onClick={handleCreateInstance}
               disabled={creating}
-              className="bg-[#00FF94] text-black hover:bg-[#00CC76] font-bold"
+              className={`font-bold ${
+                newInstanceType === 'botpress' 
+                  ? 'bg-purple-500 text-white hover:bg-purple-600' 
+                  : 'bg-[#00FF94] text-black hover:bg-[#00CC76]'
+              }`}
               data-testid="confirm-create-instance-btn"
             >
               {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create Instance'}
