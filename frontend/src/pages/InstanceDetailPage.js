@@ -156,12 +156,103 @@ const InstanceDetailPage = () => {
     }
   };
 
+  const handleSendBillingMessage = async () => {
+    if (!billingPhone.trim() || !customerName.trim() || !amount || !invoiceId.trim()) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    setSendingBilling(true);
+    try {
+      await axios.post(`${API_URL}/instances/${id}/messages/send-billing`, {
+        phone_number: billingPhone,
+        customer_name: customerName,
+        amount: parseFloat(amount),
+        currency: currency,
+        invoice_id: invoiceId,
+        due_date: dueDate || null,
+        message_type: messageType
+      });
+      toast.success('Billing notification sent successfully');
+      // Clear form
+      setBillingPhone('');
+      setCustomerName('');
+      setAmount('');
+      setInvoiceId('');
+      setDueDate('');
+      fetchMessages();
+    } catch (error) {
+      const msg = error.response?.data?.detail || 'Failed to send billing notification';
+      toast.error(msg);
+    } finally {
+      setSendingBilling(false);
+    }
+  };
+
+  const handleSendInteractiveMessage = async () => {
+    if (!interactivePhone.trim() || !interactiveTitle.trim() || !interactiveDescription.trim()) {
+      toast.error('Please fill in phone, title and description');
+      return;
+    }
+    
+    const validButtons = buttons.filter(b => b.text.trim());
+    if (validButtons.length === 0) {
+      toast.error('Please add at least one button');
+      return;
+    }
+
+    setSendingInteractive(true);
+    try {
+      await axios.post(`${API_URL}/instances/${id}/messages/send-buttons`, {
+        phone_number: interactivePhone,
+        title: interactiveTitle,
+        description: interactiveDescription,
+        footer: interactiveFooter || null,
+        buttons: validButtons.map((b, i) => ({ id: b.id || `btn_${i}`, text: b.text }))
+      });
+      toast.success('Interactive message sent successfully');
+      // Clear form
+      setInteractivePhone('');
+      setInteractiveTitle('');
+      setInteractiveDescription('');
+      setInteractiveFooter('');
+      setButtons([{ id: 'btn_1', text: '' }]);
+      fetchMessages();
+    } catch (error) {
+      const msg = error.response?.data?.detail || 'Failed to send interactive message';
+      toast.error(msg);
+    } finally {
+      setSendingInteractive(false);
+    }
+  };
+
+  const addButton = () => {
+    if (buttons.length < 3) {
+      setButtons([...buttons, { id: `btn_${buttons.length + 1}`, text: '' }]);
+    } else {
+      toast.error('Maximum 3 buttons allowed');
+    }
+  };
+
+  const removeButton = (index) => {
+    if (buttons.length > 1) {
+      setButtons(buttons.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateButton = (index, text) => {
+    const newButtons = [...buttons];
+    newButtons[index] = { ...newButtons[index], text };
+    setButtons(newButtons);
+  };
+
   const copyInstanceId = () => {
     navigator.clipboard.writeText(id);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
     toast.success('Instance ID copied');
   };
+
 
   if (loading) {
     return (
