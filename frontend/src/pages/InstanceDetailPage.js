@@ -939,6 +939,180 @@ const InstanceDetailPage = () => {
           </Card>
         </TabsContent>
 
+        {/* Botpress Integration Tab */}
+        <TabsContent value="botpress">
+          <Card className="bg-[#121212] border-white/10">
+            <CardHeader>
+              <CardTitle style={{ fontFamily: 'Chivo, sans-serif' }}>
+                <Bot className="w-5 h-5 inline mr-2 text-[#00FF94]" />
+                Botpress Integration
+              </CardTitle>
+              <CardDescription className="text-neutral-400">
+                Connect this instance to your Botpress bot to automate responses
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Status Banner */}
+              {botpressConfigured && (
+                <div className={`p-4 rounded-lg border ${botpressActive ? 'bg-[#00FF94]/10 border-[#00FF94]/30' : 'bg-neutral-800/50 border-white/10'}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-3 h-3 rounded-full ${botpressActive ? 'bg-[#00FF94] animate-pulse' : 'bg-neutral-500'}`} />
+                      <span className="font-medium">
+                        {botpressActive ? 'Botpress Active' : 'Botpress Disabled'}
+                      </span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleToggleBotpress}
+                      className={botpressActive ? 'border-[#FF5500]/30 text-[#FF5500] hover:bg-[#FF5500]/10' : 'border-[#00FF94]/30 text-[#00FF94] hover:bg-[#00FF94]/10'}
+                    >
+                      <Power className="w-4 h-4 mr-1" />
+                      {botpressActive ? 'Disable' : 'Enable'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Configuration Form */}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="botpress-webhook">Botpress Webhook URL *</Label>
+                  <div className="relative">
+                    <Link className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+                    <Input
+                      id="botpress-webhook"
+                      value={botpressWebhook}
+                      onChange={(e) => setBotpressWebhook(e.target.value)}
+                      placeholder="https://your-botpress-instance.com/webhook"
+                      className="bg-[#0A0A0A] border-white/10 pl-10"
+                      data-testid="botpress-webhook-input"
+                    />
+                  </div>
+                  <p className="text-xs text-neutral-500">
+                    Enter your Botpress webhook URL where messages will be forwarded
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="botpress-token">Authentication Token (optional)</Label>
+                  <div className="relative">
+                    <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+                    <Input
+                      id="botpress-token"
+                      type="password"
+                      value={botpressToken}
+                      onChange={(e) => setBotpressToken(e.target.value)}
+                      placeholder="Enter your Botpress token"
+                      className="bg-[#0A0A0A] border-white/10 pl-10"
+                      data-testid="botpress-token-input"
+                    />
+                  </div>
+                  <p className="text-xs text-neutral-500">
+                    Optional authentication token for securing the webhook
+                  </p>
+                </div>
+
+                {/* How it works section */}
+                <div className="bg-[#0A0A0A] rounded-lg p-4 border border-white/10">
+                  <p className="text-sm font-medium text-white mb-3">How it works:</p>
+                  <div className="space-y-2 text-sm text-neutral-400">
+                    <div className="flex items-start gap-2">
+                      <span className="bg-[#00FF94]/20 text-[#00FF94] px-2 py-0.5 rounded text-xs">1</span>
+                      <span>User sends WhatsApp message to your number</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="bg-[#00FF94]/20 text-[#00FF94] px-2 py-0.5 rounded text-xs">2</span>
+                      <span>Message is forwarded to your Botpress webhook</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="bg-[#00FF94]/20 text-[#00FF94] px-2 py-0.5 rounded text-xs">3</span>
+                      <span>Botpress processes and sends reply to:</span>
+                    </div>
+                    <div className="ml-6 mt-1">
+                      <code className="text-xs bg-neutral-800 px-2 py-1 rounded text-[#00FF94] break-all">
+                        POST {process.env.REACT_APP_BACKEND_URL}/api/botpress/reply
+                      </code>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="bg-[#00FF94]/20 text-[#00FF94] px-2 py-0.5 rounded text-xs">4</span>
+                      <span>Reply is sent back to user via WhatsApp</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Reply endpoint info */}
+                <div className="bg-[#0A0A0A] rounded-lg p-4 border border-white/10">
+                  <p className="text-sm font-medium text-white mb-2">Botpress Reply Endpoint:</p>
+                  <code className="text-xs bg-neutral-800 px-2 py-1 rounded text-neutral-300 break-all">
+                    POST {process.env.REACT_APP_BACKEND_URL}/api/botpress/reply
+                  </code>
+                  <p className="text-xs text-neutral-500 mt-2">
+                    Configure your Botpress to send replies to this endpoint with JSON body:
+                  </p>
+                  <pre className="text-xs bg-neutral-800 p-2 rounded mt-2 text-neutral-400 overflow-x-auto">
+{`{
+  "instance_id": "${id}",
+  "phone_number": "254712345678",
+  "message": "Bot reply message"
+}`}
+                  </pre>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3">
+                  <Button 
+                    onClick={handleSaveBotpress}
+                    disabled={savingBotpress || !botpressWebhook.trim()}
+                    className="bg-[#00FF94] text-black hover:bg-[#00CC76] font-bold flex-1"
+                    data-testid="save-botpress-btn"
+                  >
+                    {savingBotpress ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4 mr-2" />
+                        Save Configuration
+                      </>
+                    )}
+                  </Button>
+                  
+                  {botpressConfigured && (
+                    <>
+                      <Button 
+                        onClick={handleTestBotpress}
+                        disabled={testingBotpress}
+                        variant="outline"
+                        className="border-white/10 hover:bg-white/5"
+                        data-testid="test-botpress-btn"
+                      >
+                        {testingBotpress ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <>
+                            <TestTube className="w-4 h-4 mr-2" />
+                            Test
+                          </>
+                        )}
+                      </Button>
+                      
+                      <Button 
+                        onClick={handleRemoveBotpress}
+                        variant="outline"
+                        className="border-[#FF5500]/30 text-[#FF5500] hover:bg-[#FF5500]/10"
+                        data-testid="remove-botpress-btn"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* Messages Tab */}
         <TabsContent value="messages">
           <Card className="bg-[#121212] border-white/10">
