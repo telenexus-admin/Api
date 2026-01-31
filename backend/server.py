@@ -565,8 +565,13 @@ async def create_instance(instance_data: InstanceCreate, current_user: dict = De
     instance_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
     
+    # Validate instance type
+    if instance_data.instance_type not in ["billing", "botpress"]:
+        raise HTTPException(status_code=400, detail="Invalid instance type. Must be 'billing' or 'botpress'")
+    
     # Generate unique Evolution instance name
-    evolution_instance_name = generate_instance_name(current_user["id"], instance_data.name)
+    type_prefix = "bot" if instance_data.instance_type == "botpress" else "bill"
+    evolution_instance_name = f"tnx_{type_prefix}_{current_user['id'][:6]}_{instance_data.name.replace(' ', '')[:15]}"
     
     # Create instance in Evolution API
     try:
@@ -593,12 +598,16 @@ async def create_instance(instance_data: InstanceCreate, current_user: dict = De
         "status": "disconnected",
         "phone_number": None,
         "evolution_instance_name": evolution_instance_name,
+        "instance_type": instance_data.instance_type,
         "created_at": now,
         "updated_at": now
     }
     
     await db.instances.insert_one(instance_doc)
-    await log_activity(current_user["id"], "instance.created", instance_id, {"evolution_name": evolution_instance_name})
+    await log_activity(current_user["id"], "instance.created", instance_id, {
+        "evolution_name": evolution_instance_name,
+        "instance_type": instance_data.instance_type
+    })
     
     return InstanceResponse(
         id=instance_id,
@@ -610,7 +619,8 @@ async def create_instance(instance_data: InstanceCreate, current_user: dict = De
         created_at=now,
         updated_at=now,
         qr_code=qr_code,
-        evolution_instance_name=evolution_instance_name
+        evolution_instance_name=evolution_instance_name,
+        instance_type=instance_data.instance_type
     )
 
 @api_router.get("/instances", response_model=List[InstanceResponse])
