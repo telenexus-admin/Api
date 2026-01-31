@@ -434,16 +434,24 @@ const InstanceDetailPage = () => {
           <TabsTrigger value="send" className="data-[state=active]:bg-[#00FF94] data-[state=active]:text-black">
             Text Message
           </TabsTrigger>
-          <TabsTrigger value="billing" className="data-[state=active]:bg-[#00FF94] data-[state=active]:text-black">
-            Billing
-          </TabsTrigger>
-          <TabsTrigger value="interactive" className="data-[state=active]:bg-[#00FF94] data-[state=active]:text-black">
-            Interactive
-          </TabsTrigger>
-          <TabsTrigger value="botpress" className="data-[state=active]:bg-[#00FF94] data-[state=active]:text-black">
-            <Bot className="w-4 h-4 mr-1" />
-            Botpress
-          </TabsTrigger>
+          {/* Show Billing/Interactive tabs only for billing instances */}
+          {instance.instance_type !== 'botpress' && (
+            <>
+              <TabsTrigger value="billing" className="data-[state=active]:bg-[#00FF94] data-[state=active]:text-black">
+                Billing
+              </TabsTrigger>
+              <TabsTrigger value="interactive" className="data-[state=active]:bg-[#00FF94] data-[state=active]:text-black">
+                Interactive
+              </TabsTrigger>
+            </>
+          )}
+          {/* Show Botpress tab only for botpress instances */}
+          {instance.instance_type === 'botpress' && (
+            <TabsTrigger value="botpress" className="data-[state=active]:bg-purple-500 data-[state=active]:text-white">
+              <Bot className="w-4 h-4 mr-1" />
+              Botpress
+            </TabsTrigger>
+          )}
           <TabsTrigger value="messages" className="data-[state=active]:bg-[#00FF94] data-[state=active]:text-black">
             Messages
           </TabsTrigger>
