@@ -280,6 +280,71 @@ const InstanceDetailPage = () => {
     toast.success('Instance ID copied');
   };
 
+  const handleSaveBotpress = async () => {
+    if (!botpressWebhook.trim()) {
+      toast.error('Please enter Botpress webhook URL');
+      return;
+    }
+
+    setSavingBotpress(true);
+    try {
+      await axios.post(`${API_URL}/instances/${id}/botpress`, {
+        webhook_url: botpressWebhook,
+        token: botpressToken,
+        is_active: botpressActive
+      });
+      toast.success('Botpress integration saved successfully');
+      setBotpressConfigured(true);
+    } catch (error) {
+      const msg = error.response?.data?.detail || 'Failed to save Botpress configuration';
+      toast.error(msg);
+    } finally {
+      setSavingBotpress(false);
+    }
+  };
+
+  const handleTestBotpress = async () => {
+    setTestingBotpress(true);
+    try {
+      const response = await axios.post(`${API_URL}/instances/${id}/botpress/test`);
+      if (response.data.success) {
+        toast.success('Botpress connection successful!');
+      } else {
+        toast.error(response.data.message || 'Connection test failed');
+      }
+    } catch (error) {
+      const msg = error.response?.data?.detail || 'Failed to test connection';
+      toast.error(msg);
+    } finally {
+      setTestingBotpress(false);
+    }
+  };
+
+  const handleToggleBotpress = async () => {
+    try {
+      await axios.patch(`${API_URL}/instances/${id}/botpress`, {
+        is_active: !botpressActive
+      });
+      setBotpressActive(!botpressActive);
+      toast.success(botpressActive ? 'Botpress integration disabled' : 'Botpress integration enabled');
+    } catch (error) {
+      toast.error('Failed to update Botpress status');
+    }
+  };
+
+  const handleRemoveBotpress = async () => {
+    try {
+      await axios.delete(`${API_URL}/instances/${id}/botpress`);
+      setBotpressWebhook('');
+      setBotpressToken('');
+      setBotpressActive(false);
+      setBotpressConfigured(false);
+      toast.success('Botpress integration removed');
+    } catch (error) {
+      toast.error('Failed to remove Botpress integration');
+    }
+  };
+
 
   if (loading) {
     return (
