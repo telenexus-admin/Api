@@ -900,6 +900,288 @@ async def get_messages(
     
     return [MessageResponse(**msg) for msg in messages]
 
+# ===================== INTERACTIVE MESSAGE ROUTES =====================
+
+@api_router.post("/instances/{instance_id}/messages/send-buttons")
+async def send_button_message(
+    instance_id: str,
+    message_data: InteractiveMessageSend,
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user)
+):
+    """Send an interactive button message"""
+    instance = await db.instances.find_one({"id": instance_id, "user_id": current_user["id"]})
+    if not instance:
+        raise HTTPException(status_code=404, detail="Instance not found")
+    
+    if not instance.get("evolution_instance_name"):
+        raise HTTPException(status_code=400, detail="Instance not properly configured")
+    
+    # Check connection status
+    try:
+        state_response = await evolution_client.get_instance_connection_state(instance["evolution_instance_name"])
+        state = state_response.get("instance", {}).get("state") or state_response.get("state", "close")
+        if state != "open":
+            raise HTTPException(status_code=400, detail="Instance is not connected")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not verify connection: {str(e)}")
+    
+    message_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Send button message via Evolution API
+    try:
+        buttons = [{"id": btn.id, "text": btn.text} for btn in message_data.buttons]
+        await evolution_client.send_button_message(
+            instance["evolution_instance_name"],
+            message_data.phone_number,
+            message_data.title,
+            message_data.description,
+            message_data.footer or "",
+            buttons
+        )
+        message_status = "sent"
+    except Exception as e:
+        logger.error(f"Failed to send button message: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to send message: {str(e)}")
+    
+    # Store in database
+    message_doc = {
+        "id": message_id,
+        "instance_id": instance_id,
+        "phone_number": message_data.phone_number,
+        "message": f"{message_data.title}\n{message_data.description}",
+        "message_type": "buttons",
+        "direction": "outgoing",
+        "status": message_status,
+        "buttons": [{"id": btn.id, "text": btn.text} for btn in message_data.buttons],
+        "created_at": now
+    }
+    
+    await db.messages.insert_one(message_doc)
+    await log_activity(current_user["id"], "message.buttons_sent", instance_id, {"to": message_data.phone_number})
+    
+    return {"success": True, "message_id": message_id}
+
+@api_router.post("/instances/{instance_id}/messages/send-billing")
+async def send_billing_notification(
+    instance_id: str,
+    billing_data: BillingNotificationSend,
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user)
+):
+    """Send a billing notification with PayNow and Invoice buttons"""
+    instance = await db.instances.find_one({"id": instance_id, "user_id": current_user["id"]})
+    if not instance:
+        raise HTTPException(status_code=404, detail="Instance not found")
+    
+    if not instance.get("evolution_instance_name"):
+        raise HTTPException(status_code=400, detail="Instance not properly configured")
+    
+    # Check connection status
+    try:
+        state_response = await evolution_client.get_instance_connection_state(instance["evolution_instance_name"])
+        state = state_response.get("instance", {}).get("state") or state_response.get("state", "close")
+        if state != "open":
+            raise HTTPException(status_code=400, detail="Instance is not connected")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not verify connection: {str(e)}")
+    
+    message_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Build message based on type
+    message_templates = {
+        "payment_reminder": {
+            "title": "Payment Due Reminder",
+            "description": f"Dear {billing_data.customer_name},\n\nThis is a reminder that your payment of {billing_data.currency} {billing_data.amount:,.2f} is due.\n\nInvoice: #{billing_data.invoice_id}\n{f'Due Date: {billing_data.due_date}' if billing_data.due_date else ''}\n\nPlease ignore if already paid.",
+            "footer": "Tap PayNow to pay instantly"
+        },
+        "invoice": {
+            "title": "New Invoice Generated",
+            "description": f"Dear {billing_data.customer_name},\n\nA new invoice has been generated for your account.\n\nAmount: {billing_data.currency} {billing_data.amount:,.2f}\nInvoice: #{billing_data.invoice_id}\n{f'Due Date: {billing_data.due_date}' if billing_data.due_date else ''}",
+            "footer": "Tap PayNow to pay instantly"
+        },
+        "overdue": {
+            "title": "Payment Overdue Notice",
+            "description": f"Dear {billing_data.customer_name},\n\nYour account is now OVERDUE.\n\nOutstanding: {billing_data.currency} {billing_data.amount:,.2f}\nInvoice: #{billing_data.invoice_id}\n\nPlease settle immediately to avoid service interruption.",
+            "footer": "Pay now to restore service"
+        },
+        "confirmation": {
+            "title": "Payment Received",
+            "description": f"Dear {billing_data.customer_name},\n\nThank you! We have received your payment.\n\nAmount: {billing_data.currency} {billing_data.amount:,.2f}\nInvoice: #{billing_data.invoice_id}\n\nYour account is now up to date.",
+            "footer": "Thank you for your payment"
+        }
+    }
+    
+    template = message_templates.get(billing_data.message_type, message_templates["payment_reminder"])
+    
+    # Buttons for billing (except confirmation which doesn't need PayNow)
+    if billing_data.message_type == "confirmation":
+        buttons = [{"id": f"invoice_{billing_data.invoice_id}", "text": "View Invoice"}]
+    else:
+        buttons = [
+            {"id": f"paynow_{billing_data.invoice_id}", "text": "PayNow"},
+            {"id": f"invoice_{billing_data.invoice_id}", "text": "Invoice"}
+        ]
+    
+    # Send via Evolution API
+    try:
+        await evolution_client.send_button_message(
+            instance["evolution_instance_name"],
+            billing_data.phone_number,
+            template["title"],
+            template["description"],
+            template["footer"],
+            buttons
+        )
+        message_status = "sent"
+    except Exception as e:
+        logger.error(f"Failed to send billing notification: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to send message: {str(e)}")
+    
+    # Store in database
+    message_doc = {
+        "id": message_id,
+        "instance_id": instance_id,
+        "phone_number": billing_data.phone_number,
+        "message": f"{template['title']}\n{template['description']}",
+        "message_type": f"billing_{billing_data.message_type}",
+        "direction": "outgoing",
+        "status": message_status,
+        "billing_data": {
+            "customer_name": billing_data.customer_name,
+            "amount": billing_data.amount,
+            "currency": billing_data.currency,
+            "invoice_id": billing_data.invoice_id,
+            "due_date": billing_data.due_date,
+            "payment_url": billing_data.payment_url,
+            "invoice_url": billing_data.invoice_url
+        },
+        "buttons": buttons,
+        "created_at": now
+    }
+    
+    await db.messages.insert_one(message_doc)
+    await log_activity(current_user["id"], f"billing.{billing_data.message_type}_sent", instance_id, {
+        "to": billing_data.phone_number,
+        "invoice_id": billing_data.invoice_id,
+        "amount": billing_data.amount
+    })
+    
+    return {"success": True, "message_id": message_id, "invoice_id": billing_data.invoice_id}
+
+# ===================== PUBLIC BILLING API (Using API Key) =====================
+
+@api_router.post("/v1/billing/send-notification")
+async def api_send_billing_notification(
+    instance_id: str,
+    billing_data: BillingNotificationSend,
+    background_tasks: BackgroundTasks,
+    authorization: str = None
+):
+    """Public API endpoint for sending billing notifications using API key (for WISPMAN integration)"""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="API key required")
+    
+    api_key = authorization.replace("Bearer ", "")
+    user, key_doc = await verify_api_key(api_key)
+    
+    if "send_message" not in key_doc.get("permissions", []):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    instance = await db.instances.find_one({"id": instance_id, "user_id": user["id"]})
+    if not instance:
+        raise HTTPException(status_code=404, detail="Instance not found")
+    
+    if not instance.get("evolution_instance_name"):
+        raise HTTPException(status_code=400, detail="Instance not properly configured")
+    
+    # Check connection status
+    try:
+        state_response = await evolution_client.get_instance_connection_state(instance["evolution_instance_name"])
+        state = state_response.get("instance", {}).get("state") or state_response.get("state", "close")
+        if state != "open":
+            raise HTTPException(status_code=400, detail="Instance is not connected")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not verify connection: {str(e)}")
+    
+    message_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Build message based on type
+    message_templates = {
+        "payment_reminder": {
+            "title": "Payment Due Reminder",
+            "description": f"Dear {billing_data.customer_name},\n\nThis is a reminder that your payment of {billing_data.currency} {billing_data.amount:,.2f} is due.\n\nInvoice: #{billing_data.invoice_id}\n{f'Due Date: {billing_data.due_date}' if billing_data.due_date else ''}\n\nPlease ignore if already paid.",
+            "footer": "Tap PayNow to pay instantly"
+        },
+        "invoice": {
+            "title": "New Invoice Generated",
+            "description": f"Dear {billing_data.customer_name},\n\nA new invoice has been generated for your account.\n\nAmount: {billing_data.currency} {billing_data.amount:,.2f}\nInvoice: #{billing_data.invoice_id}\n{f'Due Date: {billing_data.due_date}' if billing_data.due_date else ''}",
+            "footer": "Tap PayNow to pay instantly"
+        },
+        "overdue": {
+            "title": "Payment Overdue Notice",
+            "description": f"Dear {billing_data.customer_name},\n\nYour account is now OVERDUE.\n\nOutstanding: {billing_data.currency} {billing_data.amount:,.2f}\nInvoice: #{billing_data.invoice_id}\n\nPlease settle immediately to avoid service interruption.",
+            "footer": "Pay now to restore service"
+        },
+        "confirmation": {
+            "title": "Payment Received",
+            "description": f"Dear {billing_data.customer_name},\n\nThank you! We have received your payment.\n\nAmount: {billing_data.currency} {billing_data.amount:,.2f}\nInvoice: #{billing_data.invoice_id}\n\nYour account is now up to date.",
+            "footer": "Thank you for your payment"
+        }
+    }
+    
+    template = message_templates.get(billing_data.message_type, message_templates["payment_reminder"])
+    
+    if billing_data.message_type == "confirmation":
+        buttons = [{"id": f"invoice_{billing_data.invoice_id}", "text": "View Invoice"}]
+    else:
+        buttons = [
+            {"id": f"paynow_{billing_data.invoice_id}", "text": "PayNow"},
+            {"id": f"invoice_{billing_data.invoice_id}", "text": "Invoice"}
+        ]
+    
+    try:
+        await evolution_client.send_button_message(
+            instance["evolution_instance_name"],
+            billing_data.phone_number,
+            template["title"],
+            template["description"],
+            template["footer"],
+            buttons
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send message: {str(e)}")
+    
+    # Store message
+    message_doc = {
+        "id": message_id,
+        "instance_id": instance_id,
+        "phone_number": billing_data.phone_number,
+        "message": f"{template['title']}\n{template['description']}",
+        "message_type": f"billing_{billing_data.message_type}",
+        "direction": "outgoing",
+        "status": "sent",
+        "billing_data": {
+            "customer_name": billing_data.customer_name,
+            "amount": billing_data.amount,
+            "currency": billing_data.currency,
+            "invoice_id": billing_data.invoice_id
+        },
+        "created_at": now
+    }
+    await db.messages.insert_one(message_doc)
+    
+    return {"success": True, "message_id": message_id, "invoice_id": billing_data.invoice_id}
+
 # ===================== WEBHOOK ROUTES =====================
 
 @api_router.post("/instances/{instance_id}/webhooks", response_model=WebhookResponse)
