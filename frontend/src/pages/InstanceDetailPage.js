@@ -254,7 +254,7 @@ const InstanceDetailPage = () => {
                   <div className="qr-container">
                     {qrCode ? (
                       <img 
-                        src={`data:image/png;base64,${qrCode}`} 
+                        src={qrCode.startsWith('data:') ? qrCode : `data:image/png;base64,${qrCode}`} 
                         alt="QR Code" 
                         className="w-64 h-64"
                         data-testid="qr-code-image"
