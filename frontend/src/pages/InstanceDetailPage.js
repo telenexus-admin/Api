@@ -1144,15 +1144,20 @@ const InstanceDetailPage = () => {
                   </pre>
                 </div>
 
-                {/* Evolution API Webhook URL */}
-                <div className="bg-[#0A0A0A] rounded-lg p-4 border border-[#00FF94]/30">
+                {/* Evolution API Webhook URL - OFFICIAL USE ONLY */}
+                <div className="bg-[#0A0A0A] rounded-lg p-4 border border-yellow-500/30">
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-sm font-medium text-white">Evolution API Webhook URL:</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-white">Evolution API Webhook URL</p>
+                      <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full border border-yellow-500/30">
+                        Official Use Only
+                      </span>
+                    </div>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={copyWebhookUrl}
-                      className="border-[#00FF94]/30 text-[#00FF94] hover:bg-[#00FF94]/10"
+                      className="border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10"
                       data-testid="copy-webhook-url-btn"
                     >
                       {copiedWebhookUrl ? (
@@ -1168,22 +1173,15 @@ const InstanceDetailPage = () => {
                       )}
                     </Button>
                   </div>
-                  <code className="text-xs bg-neutral-800 px-2 py-1 rounded text-[#00FF94] break-all block">
+                  <code className="text-xs bg-neutral-800 px-2 py-1 rounded text-yellow-300 break-all block">
                     {process.env.REACT_APP_BACKEND_URL}/api/webhooks/evolution/{instance?.evolution_instance_name || 'loading...'}
                   </code>
-                  <p className="text-xs text-neutral-500 mt-3">
-                    Configure this webhook URL in your Evolution API instance to receive incoming WhatsApp messages.
-                  </p>
-                  <div className="mt-3 text-xs text-neutral-400 space-y-1">
-                    <p className="font-medium text-white">How to configure in Evolution API:</p>
-                    <ol className="list-decimal list-inside space-y-1 ml-2">
-                      <li>Go to your Evolution API dashboard</li>
-                      <li>Select this instance: <span className="text-[#00FF94] font-mono">{instance?.evolution_instance_name}</span></li>
-                      <li>Navigate to Webhooks settings</li>
-                      <li>Add the webhook URL above</li>
-                      <li>Enable the <code className="bg-neutral-800 px-1 rounded">MESSAGES_UPSERT</code> event</li>
-                      <li>Save the configuration</li>
-                    </ol>
+                  <div className="mt-3 p-3 bg-yellow-500/5 border border-yellow-500/20 rounded">
+                    <p className="text-xs text-yellow-200 font-medium mb-1">⚠️ For Telenexus Administrators Only</p>
+                    <p className="text-xs text-neutral-400">
+                      This webhook URL is configured by the Telenexus team in Evolution API. 
+                      No action required from you. If you need changes, please contact Telenexus support.
+                    </p>
                   </div>
                 </div>
 
