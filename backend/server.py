@@ -1455,6 +1455,92 @@ async def botpress_reply(
         logger.error(f"Failed to send Botpress reply: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to send message: {str(e)}")
 
+@api_router.post("/webhooks/botpress/{instance_id}")
+async def receive_botpress_webhook(
+    instance_id: str,
+    request: Request,
+    background_tasks: BackgroundTasks
+):
+    """
+    Instance-specific webhook endpoint for Botpress Messaging API integration.
+    This is the URL you provide TO Botpress in their Messaging API configuration.
+    Botpress will send bot replies to this endpoint.
+    """
+    try:
+        payload = await request.json()
+        logger.info(f"Botpress webhook received for instance {instance_id}: {payload}")
+        
+        # Find the instance
+        instance = await db.instances.find_one({"id": instance_id}, {"_id": 0})
+        if not instance:
+            logger.warning(f"Instance not found: {instance_id}")
+            raise HTTPException(status_code=404, detail="Instance not found")
+        
+        if not instance.get("evolution_instance_name"):
+            raise HTTPException(status_code=400, detail="Instance not properly configured")
+        
+        # Extract message data from Botpress payload
+        # Botpress Messaging API typically sends: { "message": {...}, "conversation": {...}, "user": {...} }
+        message_data = payload.get("message", {})
+        user_data = payload.get("user", {})
+        conversation = payload.get("conversation", {})
+        
+        # Get phone number from user data or conversation
+        phone_number = user_data.get("id", "")
+        if not phone_number:
+            phone_number = conversation.get("id", "").replace(f"{instance_id}_", "")
+        
+        # Extract message text
+        message_text = ""
+        if message_data.get("type") == "text":
+            message_text = message_data.get("text", "")
+        elif "payload" in message_data:
+            # Handle different message types
+            payload_data = message_data.get("payload", {})
+            message_text = payload_data.get("text", str(payload_data))
+        else:
+            message_text = str(message_data)
+        
+        if not phone_number or not message_text:
+            logger.warning(f"Invalid Botpress payload: missing phone or message")
+            return {"success": False, "error": "Missing phone_number or message"}
+        
+        # Send message via Evolution API
+        try:
+            await evolution_client.send_text_message(
+                instance["evolution_instance_name"],
+                phone_number,
+                message_text
+            )
+            
+            # Store message in database
+            message_id = str(uuid.uuid4())
+            now = datetime.now(timezone.utc).isoformat()
+            
+            message_doc = {
+                "id": message_id,
+                "instance_id": instance_id,
+                "phone_number": phone_number,
+                "message": message_text,
+                "message_type": "botpress_reply",
+                "direction": "outgoing",
+                "status": "sent",
+                "created_at": now
+            }
+            
+            await db.messages.insert_one(message_doc)
+            
+            logger.info(f"Botpress reply sent successfully: {message_id}")
+            return {"success": True, "message_id": message_id}
+            
+        except Exception as e:
+            logger.error(f"Failed to send Botpress reply via Evolution: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to send message: {str(e)}")
+        
+    except Exception as e:
+        logger.error(f"Error processing Botpress webhook: {e}")
+        return {"success": False, "error": str(e)}
+
 # ===================== EVOLUTION API WEBHOOK ENDPOINT =====================
 
 @api_router.post("/webhooks/evolution/{evolution_instance_name}")
