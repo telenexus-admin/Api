@@ -1032,6 +1032,72 @@ const InstanceDetailPage = () => {
                   </p>
                 </div>
 
+                {/* Botpress Messaging API Webhook URLs - IMPORTANT SECTION */}
+                <div className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 rounded-lg p-4 border-2 border-purple-500/30">
+                  <p className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+                    <Bot className="w-5 h-5 text-purple-400" />
+                    Botpress Messaging API Configuration
+                  </p>
+                  
+                  {/* Step 1: Webhook TO give Botpress */}
+                  <div className="mb-4 bg-[#0A0A0A] rounded-lg p-3 border border-purple-500/20">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-medium text-purple-300">STEP 1: Webhook URL for Botpress</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const url = `${process.env.REACT_APP_BACKEND_URL}/api/webhooks/botpress/${id}`;
+                          navigator.clipboard.writeText(url);
+                          toast.success('Botpress webhook URL copied!');
+                        }}
+                        className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10 h-7 text-xs"
+                        data-testid="copy-botpress-webhook-btn"
+                      >
+                        <Copy className="w-3 h-3 mr-1" />
+                        Copy
+                      </Button>
+                    </div>
+                    <code className="text-xs bg-neutral-800 px-2 py-1 rounded text-purple-300 break-all block">
+                      {process.env.REACT_APP_BACKEND_URL}/api/webhooks/botpress/{id}
+                    </code>
+                    <p className="text-xs text-neutral-400 mt-2">
+                      📋 <strong>Use this URL</strong> in your Botpress Messaging API integration configuration
+                    </p>
+                  </div>
+
+                  {/* Step 2: Webhook FROM Botpress */}
+                  <div className="bg-[#0A0A0A] rounded-lg p-3 border border-blue-500/20">
+                    <p className="text-xs font-medium text-blue-300 mb-2">STEP 2: Get Webhook URL from Botpress</p>
+                    <p className="text-xs text-neutral-400 mb-2">
+                      After configuring Step 1 in Botpress, copy the webhook URL that Botpress provides
+                    </p>
+                    <Input
+                      value={botpressWebhook}
+                      onChange={(e) => setBotpressWebhook(e.target.value)}
+                      placeholder="Paste Botpress webhook URL here..."
+                      className="bg-neutral-800 border-blue-500/30 text-xs h-8"
+                      data-testid="botpress-webhook-from-botpress-input"
+                    />
+                    <p className="text-xs text-neutral-400 mt-2">
+                      📥 <strong>Paste here</strong> the webhook URL from your Botpress Messaging API integration
+                    </p>
+                  </div>
+
+                  {/* Quick Guide */}
+                  <div className="mt-3 pt-3 border-t border-white/10">
+                    <p className="text-xs font-medium text-white mb-2">Quick Setup Guide:</p>
+                    <ol className="text-xs text-neutral-400 space-y-1 list-decimal list-inside">
+                      <li>Copy the Step 1 URL above</li>
+                      <li>Go to Botpress → Integrations → Messaging API</li>
+                      <li>Paste the URL in the "Webhook URL" field in Botpress</li>
+                      <li>Botpress will show you THEIR webhook URL</li>
+                      <li>Copy Botpress's URL and paste in Step 2 above</li>
+                      <li>Click "Save Configuration" below</li>
+                    </ol>
+                  </div>
+                </div>
+
                 {/* How it works section */}
                 <div className="bg-[#0A0A0A] rounded-lg p-4 border border-white/10">
                   <p className="text-sm font-medium text-white mb-3">How it works:</p>
