@@ -961,6 +961,279 @@ const InstanceDetailPage = () => {
           </Card>
         </TabsContent>
 
+        {/* API Integration Tab - For Billing Instances */}
+        <TabsContent value="api-integration">
+          <Card className="bg-[#121212] border-white/10">
+            <CardHeader>
+              <CardTitle style={{ fontFamily: 'Chivo, sans-serif' }}>
+                <Key className="w-5 h-5 inline mr-2 text-blue-400" />
+                API Integration for Billing Systems
+              </CardTitle>
+              <CardDescription className="text-neutral-400">
+                Integrate this WhatsApp instance with your billing system (WISPMAN, custom software, etc.)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              
+              {/* API Endpoint Section */}
+              <div className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 rounded-lg p-4 border-2 border-blue-500/30">
+                <p className="text-sm font-bold text-white mb-3">📡 API Endpoint</p>
+                
+                <div className="bg-[#0A0A0A] rounded-lg p-3 border border-blue-500/20 mb-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-medium text-blue-300">POST Request URL</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const url = `${process.env.REACT_APP_BACKEND_URL}/api/v1/billing/send-notification?instance_id=${id}`;
+                        navigator.clipboard.writeText(url);
+                        toast.success('API endpoint copied!');
+                      }}
+                      className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10 h-7 text-xs"
+                      data-testid="copy-api-endpoint-btn"
+                    >
+                      <Copy className="w-3 h-3 mr-1" />
+                      Copy
+                    </Button>
+                  </div>
+                  <code className="text-xs bg-neutral-800 px-2 py-1 rounded text-blue-300 break-all block">
+                    POST {process.env.REACT_APP_BACKEND_URL}/api/v1/billing/send-notification?instance_id={id}
+                  </code>
+                </div>
+
+                <div className="bg-[#0A0A0A] rounded-lg p-3 border border-cyan-500/20">
+                  <p className="text-xs font-medium text-cyan-300 mb-2">Instance ID</p>
+                  <div className="flex items-center gap-2">
+                    <code className="text-xs bg-neutral-800 px-2 py-1 rounded text-cyan-300 flex-1">
+                      {id}
+                    </code>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(id);
+                        toast.success('Instance ID copied!');
+                      }}
+                      className="border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10 h-7 text-xs"
+                    >
+                      <Copy className="w-3 h-3" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-neutral-400 mt-2">
+                    Use this instance ID in your billing system configuration
+                  </p>
+                </div>
+              </div>
+
+              {/* API Key Section */}
+              <div className="bg-yellow-500/5 border border-yellow-500/30 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-sm font-bold text-white">🔑 API Key Required</p>
+                    <p className="text-xs text-neutral-400 mt-1">Generate an API key to authenticate your billing system</p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate('/dashboard/api-keys')}
+                    className="border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10"
+                    data-testid="go-to-api-keys-btn"
+                  >
+                    <Key className="w-4 h-4 mr-2" />
+                    Manage API Keys
+                  </Button>
+                </div>
+                <p className="text-xs text-neutral-400">
+                  Your billing system will need an API key for authentication. Generate one in the API Keys page, then configure it in your billing system.
+                </p>
+              </div>
+
+              {/* Code Examples */}
+              <div className="space-y-3">
+                <p className="text-sm font-bold text-white">📝 Example API Request</p>
+                
+                {/* cURL Example */}
+                <div className="bg-[#0A0A0A] rounded-lg p-4 border border-white/10">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-medium text-neutral-300">cURL</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const curl = `curl -X POST "${process.env.REACT_APP_BACKEND_URL}/api/v1/billing/send-notification?instance_id=${id}" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -d '{
+    "phone_number": "254712345678",
+    "customer_name": "John Doe",
+    "amount": 1500.00,
+    "currency": "KES",
+    "invoice_id": "INV-001",
+    "due_date": "2026-02-15",
+    "message_type": "payment_reminder"
+  }'`;
+                        navigator.clipboard.writeText(curl);
+                        toast.success('cURL example copied!');
+                      }}
+                      className="hover:bg-white/5 h-6 text-xs"
+                    >
+                      <Copy className="w-3 h-3 mr-1" />
+                      Copy
+                    </Button>
+                  </div>
+                  <pre className="text-xs bg-neutral-900 p-3 rounded overflow-x-auto text-neutral-300">
+{`curl -X POST "${process.env.REACT_APP_BACKEND_URL}/api/v1/billing/send-notification?instance_id=${id}" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -d '{
+    "phone_number": "254712345678",
+    "customer_name": "John Doe",
+    "amount": 1500.00,
+    "currency": "KES",
+    "invoice_id": "INV-001",
+    "due_date": "2026-02-15",
+    "message_type": "payment_reminder"
+  }'`}
+                  </pre>
+                </div>
+
+                {/* Python Example */}
+                <div className="bg-[#0A0A0A] rounded-lg p-4 border border-white/10">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-medium text-neutral-300">Python</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const python = `import requests
+
+url = "${process.env.REACT_APP_BACKEND_URL}/api/v1/billing/send-notification"
+headers = {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer YOUR_API_KEY"
+}
+data = {
+    "phone_number": "254712345678",
+    "customer_name": "John Doe",
+    "amount": 1500.00,
+    "currency": "KES",
+    "invoice_id": "INV-001",
+    "due_date": "2026-02-15",
+    "message_type": "payment_reminder"
+}
+params = {"instance_id": "${id}"}
+
+response = requests.post(url, json=data, headers=headers, params=params)
+print(response.json())`;
+                        navigator.clipboard.writeText(python);
+                        toast.success('Python example copied!');
+                      }}
+                      className="hover:bg-white/5 h-6 text-xs"
+                    >
+                      <Copy className="w-3 h-3 mr-1" />
+                      Copy
+                    </Button>
+                  </div>
+                  <pre className="text-xs bg-neutral-900 p-3 rounded overflow-x-auto text-neutral-300">
+{`import requests
+
+url = "${process.env.REACT_APP_BACKEND_URL}/api/v1/billing/send-notification"
+headers = {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer YOUR_API_KEY"
+}
+data = {
+    "phone_number": "254712345678",
+    "customer_name": "John Doe",
+    "amount": 1500.00,
+    "currency": "KES",
+    "invoice_id": "INV-001",
+    "due_date": "2026-02-15",
+    "message_type": "payment_reminder"
+}
+params = {"instance_id": "${id}"}
+
+response = requests.post(url, json=data, headers=headers, params=params)
+print(response.json())`}
+                  </pre>
+                </div>
+              </div>
+
+              {/* Parameters Documentation */}
+              <div className="bg-[#0A0A0A] rounded-lg p-4 border border-white/10">
+                <p className="text-sm font-bold text-white mb-3">📋 Request Parameters</p>
+                <div className="space-y-2 text-xs">
+                  <div className="grid grid-cols-3 gap-2 pb-2 border-b border-white/10">
+                    <span className="font-medium text-neutral-300">Parameter</span>
+                    <span className="font-medium text-neutral-300">Type</span>
+                    <span className="font-medium text-neutral-300">Description</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <code className="text-blue-400">phone_number</code>
+                    <span className="text-neutral-400">string</span>
+                    <span className="text-neutral-400">Customer's WhatsApp number (with country code)</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <code className="text-blue-400">customer_name</code>
+                    <span className="text-neutral-400">string</span>
+                    <span className="text-neutral-400">Customer's name</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <code className="text-blue-400">amount</code>
+                    <span className="text-neutral-400">number</span>
+                    <span className="text-neutral-400">Bill amount</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <code className="text-blue-400">currency</code>
+                    <span className="text-neutral-400">string</span>
+                    <span className="text-neutral-400">Currency code (KES, USD, etc.)</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <code className="text-blue-400">invoice_id</code>
+                    <span className="text-neutral-400">string</span>
+                    <span className="text-neutral-400">Invoice/bill reference number</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <code className="text-blue-400">due_date</code>
+                    <span className="text-neutral-400">string</span>
+                    <span className="text-neutral-400">Payment due date (optional)</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <code className="text-blue-400">message_type</code>
+                    <span className="text-neutral-400">string</span>
+                    <span className="text-neutral-400">payment_reminder, invoice, overdue, confirmation</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Setup Guide */}
+              <div className="bg-green-500/5 border border-green-500/30 rounded-lg p-4">
+                <p className="text-sm font-bold text-white mb-3">✅ Integration Checklist</p>
+                <ol className="text-xs text-neutral-400 space-y-2 list-decimal list-inside">
+                  <li>Go to <strong className="text-white">API Keys</strong> page and generate an API key</li>
+                  <li>Copy the <strong className="text-white">Instance ID</strong> from above</li>
+                  <li>Copy the <strong className="text-white">API Endpoint URL</strong></li>
+                  <li>Configure your billing system with:
+                    <ul className="ml-6 mt-1 space-y-1 list-disc list-inside">
+                      <li>API Endpoint URL</li>
+                      <li>Instance ID</li>
+                      <li>API Key (for Authorization header)</li>
+                    </ul>
+                  </li>
+                  <li>Test the integration using the cURL example above</li>
+                  <li>Check <strong className="text-white">Messages</strong> tab to verify delivery</li>
+                </ol>
+              </div>
+
+              {/* Support Note */}
+              <div className="text-xs text-neutral-500 text-center p-3 border-t border-white/10">
+                Need help integrating? Check the Messages tab after sending a test request, or contact support.
+              </div>
+
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* Botpress Integration Tab */}
         <TabsContent value="botpress">
           <Card className="bg-[#121212] border-white/10">
