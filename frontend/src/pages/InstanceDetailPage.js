@@ -1126,24 +1126,6 @@ const InstanceDetailPage = () => {
                   </div>
                 </div>
 
-                {/* Reply endpoint info */}
-                <div className="bg-[#0A0A0A] rounded-lg p-4 border border-white/10">
-                  <p className="text-sm font-medium text-white mb-2">Botpress Reply Endpoint:</p>
-                  <code className="text-xs bg-neutral-800 px-2 py-1 rounded text-neutral-300 break-all">
-                    POST {process.env.REACT_APP_BACKEND_URL}/api/botpress/reply
-                  </code>
-                  <p className="text-xs text-neutral-500 mt-2">
-                    Configure your Botpress to send replies to this endpoint with JSON body:
-                  </p>
-                  <pre className="text-xs bg-neutral-800 p-2 rounded mt-2 text-neutral-400 overflow-x-auto">
-{`{
-  "instance_id": "${id}",
-  "phone_number": "254712345678",
-  "message": "Bot reply message"
-}`}
-                  </pre>
-                </div>
-
                 {/* Evolution API Webhook URL - OFFICIAL USE ONLY */}
                 <div className="bg-[#0A0A0A] rounded-lg p-4 border border-yellow-500/30">
                   <div className="flex items-center justify-between mb-3">
