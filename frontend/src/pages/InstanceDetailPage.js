@@ -453,6 +453,10 @@ const InstanceDetailPage = () => {
               <TabsTrigger value="interactive" className="data-[state=active]:bg-[#00FF94] data-[state=active]:text-black">
                 Interactive
               </TabsTrigger>
+              <TabsTrigger value="api-integration" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">
+                <Key className="w-4 h-4 mr-1" />
+                API Integration
+              </TabsTrigger>
             </>
           )}
           {/* Show Botpress tab only for botpress instances */}
