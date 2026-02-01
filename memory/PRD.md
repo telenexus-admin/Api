@@ -75,6 +75,35 @@ User -> Telenexus API -> Evolution API -> WhatsApp Web
 - [ ] Message templates
 - [ ] Scheduled messages
 
+## Recent Updates (2026-02-01)
+
+### Evolution API Webhook Integration ✅
+- **Backend**: Added webhook endpoint `/api/webhooks/evolution/{instance_name}`
+- **Frontend**: Added webhook URL display with copy button in Botpress configuration
+- **Functionality**: 
+  - Receives incoming WhatsApp messages from Evolution API
+  - Automatically forwards to Botpress if configured
+  - Stores all incoming messages in database
+  - Triggers user-configured webhooks
+  - Supports multiple message types (text, image, video, audio, document)
+
+### Message Flow (Complete)
+```
+User WhatsApp Message
+    ↓
+Evolution API (receives)
+    ↓
+POST /api/webhooks/evolution/{instance_name} (NEW!)
+    ↓
+[Store in DB] → [Forward to Botpress] → [Trigger user webhooks]
+    ↓
+Botpress processes
+    ↓
+POST /api/botpress/reply
+    ↓
+Evolution API → WhatsApp User
+```
+
 ## Next Tasks
 1. Implement M-Pesa Daraja API integration
 2. Create reply-based payment flow
